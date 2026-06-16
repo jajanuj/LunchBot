@@ -1,6 +1,7 @@
 import { listEmployees } from "@/lib/data/employees";
 import { deleteEmployeeAction } from "./actions";
 import AddEmployeeForm from "./add-employee-form";
+import BulkImportForm from "./bulk-import-form";
 
 export default async function EmployeesPage() {
   const employees = await listEmployees();
@@ -10,6 +11,7 @@ export default async function EmployeesPage() {
       <h1 className="text-xl font-bold mb-4">員工名冊</h1>
 
       <AddEmployeeForm />
+      <BulkImportForm />
 
       <table className="w-full border-collapse text-left">
         <thead>

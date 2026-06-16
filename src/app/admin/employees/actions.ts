@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { verifySession } from "@/lib/auth/dal";
-import { createEmployee, deleteEmployee } from "@/lib/data/employees";
+import { createEmployee, createEmployeesBulk, deleteEmployee } from "@/lib/data/employees";
 
 export type CreateEmployeeActionState = { error?: string } | undefined;
 
@@ -21,6 +21,28 @@ export async function createEmployeeAction(
 
   revalidatePath("/admin/employees");
   return undefined;
+}
+
+export type BulkImportActionState =
+  | { createdCount: number; skipped: { name: string; reason: string }[] }
+  | undefined;
+
+export async function bulkImportEmployeesAction(
+  _prevState: BulkImportActionState,
+  formData: FormData
+): Promise<BulkImportActionState> {
+  await verifySession();
+
+  const namesText = String(formData.get("namesText") ?? "");
+  const names = namesText
+    .split(/\r?\n|,/) // 支援換行或逗號分隔（貼 Excel 欄位、.csv 都吃得下）
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0);
+
+  const result = await createEmployeesBulk(names);
+
+  revalidatePath("/admin/employees");
+  return { createdCount: result.created.length, skipped: result.skipped };
 }
 
 export async function deleteEmployeeAction(formData: FormData): Promise<void> {

@@ -51,6 +51,31 @@ export async function createEmployee(name: string): Promise<CreateEmployeeResult
   return { ok: true, employee };
 }
 
+export type BulkCreateResult = {
+  created: string[];
+  skipped: { name: string; reason: string }[];
+};
+
+/**
+ * 批次新增員工：逐筆套用跟 createEmployee 一樣的驗證規則，單筆失敗不會
+ * 中斷整批，最後回報「成功新增哪些」「略過哪些及原因」。
+ */
+export async function createEmployeesBulk(names: string[]): Promise<BulkCreateResult> {
+  const created: string[] = [];
+  const skipped: { name: string; reason: string }[] = [];
+
+  for (const rawName of names) {
+    const result = await createEmployee(rawName);
+    if (result.ok) {
+      created.push(result.employee.employeeName);
+    } else {
+      skipped.push({ name: rawName.trim() || "(空白)", reason: result.error });
+    }
+  }
+
+  return { created, skipped };
+}
+
 export async function deleteEmployee(id: string): Promise<void> {
   const index = employees.findIndex((e) => e.id === id);
   if (index !== -1) {
