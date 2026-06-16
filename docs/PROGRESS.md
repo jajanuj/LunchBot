@@ -13,10 +13,9 @@
   - `npm run build` / `npm run lint` / `npm run test:e2e` 皆通過
 
 - 🔄 **進行中**
-  - （無）
+  - 階段一：Supabase 資料庫 schema — `supabase/migrations/0001_init_schema.sql`、`0002_rls_policies.sql` 已依計劃文件第 4 節寫好（9 張表 + RLS），但因 Supabase 專案尚未建立、本機也沒有 psql/docker，**無法實際套用驗證**。待老闆建立 Supabase 專案、提供 Project URL / anon key / service_role key 後即可套用並驗證，屆時才能標記為完成
 
 - ⏳ **待處理（依 `docs/LunchBot-plan.md` 第 6 節 WBS 順序）**
-  - 階段一：建立 Supabase 專案資料表 — 因 Supabase 專案尚未建立，先以 SQL migration 檔案（`supabase/migrations/`）的方式撰寫 schema，待老闆建立專案後再套用
   - 階段一：`employees` 員工名冊匯入機制
   - 階段一：Next.js 後台 店家/菜單 CRUD（手動輸入模式）
   - 階段一：歷史樣板載入與套用功能
@@ -36,3 +35,4 @@
 | 套件管理工具 | npm | 2026-06-16 |
 | E2E 測試工具 | Puppeteer | 2026-06-16 |
 | Supabase 專案狀態 | 尚未建立，先寫 SQL migration 檔案 | 2026-06-16 |
+| Supabase RLS 架構 | 前端不直接連 Supabase，一律經由 Next.js API Route + service_role key；anon/authenticated 角色預設拒絕所有存取（待老闆確認，詳見 `supabase/migrations/0002_rls_policies.sql` 註解） | 2026-06-16 |
