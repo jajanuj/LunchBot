@@ -20,13 +20,15 @@
     - LINE Webhook 接收與簽章驗證：`/api/line/webhook`，用官方 `@line/bot-sdk` 的 `validateSignature` 驗證，記錄所有事件並偵測群組事件印出 groupId
     - 用 ngrok 實測 Webhook 全流程通過：LINE 後台 Verify 成功、群組訊息事件正確被接收與記錄
     - Flex Message 菜單推播：`/admin/menus/[id]` 新增「推播至 LINE 群組」按鈕，同一天收單中的菜單合併成一則 Carousel 訊息推播，已實際發送到測試群組驗證成功（`npm run verify:line-push` 可重複手動驗證，故意不放進自動化測試避免洗群組版面）
-  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 24 個情境）皆通過
+    - LIFF 點餐頁面：`/liff/order`，身分綁定（從未綁定名單選姓名，防冒名）+ 點餐（數量/備註）+ upsert 修改 + 取消/重新點餐 + 截止後鎖定唯讀；因 `liff.getProfile()` 需要真實 LINE App 環境，加了僅非正式環境出現的「開發測試模式」身分模擬入口
+  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 31 個情境）皆通過
 
 - 🔄 **進行中**
   - Supabase 資料庫 schema — `supabase/migrations/0001_init_schema.sql`、`0002_rls_policies.sql` 已依計劃文件第 4 節寫好（9 張表 + RLS），但因 Supabase 專案尚未建立、本機也沒有 psql/docker，**無法實際套用驗證**。待老闆建立 Supabase 專案、提供 Project URL / anon key / service_role key 後即可套用並驗證
 
 - ⏳ **待處理**
-  - WBS 階段二剩餘項目：LIFF 點餐頁面、截止時間自動關閉菜單、截止前提醒推播、助理代客新增/修改訂單
+  - WBS 階段二剩餘項目：截止時間自動關閉菜單、截止前提醒推播、助理代客新增/修改訂單
+  - 安全性待強化：LIFF 身分目前信任前端傳來的 lineUserId，沒有用 `liff.getIDToken()` 做伺服器端 JWT 驗證（內部 MVP 風險可接受，未來可加強，見 `src/app/liff/order/actions.ts` 註解）
   - WBS 階段三（Gemini AI 菜單辨識）：需要老闆先申請 Google Gemini API Key
   - WBS 階段四（結算彙整與薪資扣款）
   - 階段一所有 mock 資料層（employees / menus / storeTemplates）最終都要換成真正的 Supabase 查詢，待 Supabase 專案建立後一起處理
@@ -42,6 +44,7 @@
   - LINE Developers 申請過程中，Channel Access Token 與 Channel Secret 一度完整明碼出現在截圖裡，兩組都立刻請老闆點「Issue」重新簽發、作廢舊的，新的直接存進老闆自己的 `.env.local`，沒有貼進對話紀錄。**之後若需要看 LINE 後台畫面，金鑰類欄位（Channel Secret / Access Token）務必先避開或遮住再截圖**。
   - LINE Webhook 端點是 server-to-server，沒有瀏覽器頁面可以給 Puppeteer 點，`e2e/line-webhook.test.mjs` 改用真實 HTTP request + 用 `.env.local` 裡的真正 Channel Secret 計算簽章來測試，執行時要用 `node --env-file=.env.local` 載入環境變數（npm script 已內建）。
   - 用 ngrok 串接真實 LINE Webhook 測試時，一度收到 LINE 後台「404 Not Found」的驗證失敗。原因是老闆電腦上同時跑著另一個專案（StarDuty 星際學院，`D:\WebSite\StartDust`）佔住了 port 3000，LunchBot 的 `npm run dev` 偵測到後自動換到 3001，但 ngrok 還是轉去 3000，打到別的專案去了。**之後若 `npm run dev` 沒有顯示 `Local: http://localhost:3000`，要先確認有沒有其他專案佔用 3000**，不要假設一定是 3000。已協助關閉 StarDuty 的 process 讓 LunchBot 拿回 3000，問題排除。
+  - LIFF E2E 測試裡，助理用的 page 物件如果在另一個 page（LIFF 頁面）做很多步驟期間閒置太久，之後再對它 `.click()` 偶爾會卡死（`Runtime.callFunctionOn timed out`，加大 `protocolTimeout` 也沒用）。改成每次助理操作（建立菜單、結單）都開一個全新的 page 物件用完就關閉，問題排除。另外：**同一個 browser context 已經登入過後，不能再對新 page 呼叫 `loginAsMockAdmin` 導去 `/login`**，因為 cookie 還在，`proxy.ts` 會直接把 `/login` 導回 `/admin`，等不到 `#email` 欄位；新開的 page 只要直接導去要操作的網址即可，不用重新登入。
 
 ---
 
