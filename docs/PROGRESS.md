@@ -8,8 +8,9 @@
 
 - ✅ **已完成**
   - 專案骨架初始化：Next.js 16 (App Router) + TypeScript + Tailwind CSS + ESLint
-  - 已設定 Git 版控（git init + 第一個 commit）
-  - E2E 測試環境：Puppeteer，測試腳本 `e2e/smoke.test.mjs`（啟動 dev server → 開首頁 → 驗證渲染成功）
+  - 已設定 Git 版控（git init + commits）
+  - E2E 測試環境：Puppeteer，`e2e/smoke.test.mjs`（首頁渲染）、`e2e/login.test.mjs`（登入/登出 4 種情境），共用工具 `e2e/utils.mjs`
+  - 後台登入機制：mock 帳號（scrypt 雜湊）+ HMAC 簽章 session cookie + Next.js 16 `proxy.ts`（樂觀導向）+ DAL `verifySession()`（安全檢查），`/login`、`/admin` 頁面，介面設計成之後可直接換成 Supabase Auth
   - `npm run build` / `npm run lint` / `npm run test:e2e` 皆通過
 
 - 🔄 **進行中**
@@ -24,6 +25,8 @@
 - ⚠️ **遇到的問題 / 已修正紀錄**
   - `create-next-app` 預設會產生 `CLAUDE.md`（內容為 `@AGENTS.md` 指向檔），Windows 檔案系統不分大小寫，與既有的 `claude.md` 專案規範檔是同一個檔案，搬移專案骨架時不慎覆蓋掉原內容。已立即發現並用對話中讀取過的原始內容還原，且移除了多餘的 `AGENTS.md`。**後續若再次 scaffold 專案或新增工具，需注意 Windows 環境下檔名大小寫衝突的風險。**
   - Supabase / LINE / Gemini 等外部服務目前皆尚未建立帳號或取得金鑰，相關任務會先以本機可獨立驗證的方式（如 SQL migration 檔案、Mock 資料）進行，待老闆提供實際憑證後再串接。
+  - Next.js 16 把 `middleware.ts` 改名為 `proxy.ts`（功能相同），開發前先查了 `node_modules/next/dist/docs` 才確認，避免寫了舊版檔名導致保護機制悄悄失效。
+  - E2E 測試一開始用 `child.kill()` 關閉 `next dev`，在 Windows 上因為 `shell:true` 啟動的是 cmd.exe → npx → node 的程序樹，只會砍掉最外層 cmd.exe，底層 next dev server 變成孤兒程序、一路佔用 port 並持續吃記憶體（曾累積到 4 個殘留 process）。已改用 `taskkill /PID <pid> /T /F` 砍整個程序樹並清掉殘留 process，修正後 `e2e/utils.mjs` 統一處理。
 
 ---
 
@@ -36,3 +39,4 @@
 | E2E 測試工具 | Puppeteer | 2026-06-16 |
 | Supabase 專案狀態 | 尚未建立，先寫 SQL migration 檔案 | 2026-06-16 |
 | Supabase RLS 架構 | 前端不直接連 Supabase，一律經由 Next.js API Route + service_role key；anon/authenticated 角色預設拒絕所有存取（待老闆確認，詳見 `supabase/migrations/0002_rls_policies.sql` 註解） | 2026-06-16 |
+| 後台登入機制 | 完整帳號系統（每位助理獨立帳號），但因 Supabase 尚未建立先用 mock 帳號頂著，介面設計成之後可直接換成 Supabase Auth | 2026-06-16 |
