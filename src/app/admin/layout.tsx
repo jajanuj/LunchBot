@@ -21,6 +21,9 @@ export default async function AdminLayout({
           <Link href="/admin/employees" className="underline">
             員工名冊
           </Link>
+          <Link href="/admin/menus" className="underline">
+            菜單管理
+          </Link>
         </nav>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-600">{user.displayName}</span>
