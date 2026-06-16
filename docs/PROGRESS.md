@@ -43,7 +43,7 @@
 |---|---|---|---|---|
 | Supabase | Project URL / anon key / service_role key | 正式資料庫（schema 已寫好待套用） | 尚未建立專案 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` |
 | LINE Developers - Messaging API | Channel Access Token / Channel Secret | 建立 LINE Bot、推送 Flex Message、驗證 Webhook 簽章 | 尚未申請 | `LINE_CHANNEL_ACCESS_TOKEN` / `LINE_CHANNEL_SECRET` |
-| LINE Developers - LIFF | LIFF ID | 員工點餐頁面（LIFF App） | 尚未申請 | `LINE_LIFF_ID` |
+| LINE Developers - LIFF | LIFF ID | 員工點餐頁面（LIFF App） | 尚未申請 | `NEXT_PUBLIC_LINE_LIFF_ID` |
 | LINE 群組 | 群組 ID | 推播目標群組 | 尚未取得（要先把 Bot 加入群組才能取得，見下方步驟 12） | `LINE_GROUP_ID` |
 | Google Gemini | API Key | 菜單圖片 AI 辨識 | 尚未申請 | `GEMINI_API_KEY` |
 
@@ -72,9 +72,21 @@
 12. 群組 ID 沒有地方能直接「看到」，要透過程式取得：Bot 加入群組後，群組裡有任何訊息事件，Webhook 收到的內容裡 `source.groupId` 就是群組 ID。等階段二把 Webhook 接好後，我會先加一行記錄把這個值印出來，你看 log 把它存進 `.env.local` 即可，**現在不用急著處理這一步**。
 
 #### 五、建立 LIFF App
-13. 在同一個 Channel 裡切到「**LIFF**」分頁，點「Add」新增一個 LIFF App。
-14. 設定：LIFF app name（如「員工點餐」）／Size 建議選 `Full`／Endpoint URL 先填暫定網址（如 `https://your-domain.vercel.app/liff/order`，之後部署網址確定再回來改）／Scope 勾選 `profile`（取得員工的 LINE userId / 顯示名稱）。
-15. 建立後會拿到一串 `LIFF ID`（格式類似 `1234567890-AbCdEfGh`）→ 對應 `LINE_LIFF_ID`。
+LIFF（LINE Front-end Framework）讓我們的網頁可以在 LINE App 內嵌開啟，使用者點擊「我要點餐」後不需要額外登入，網頁就能透過 LIFF SDK 拿到目前使用者的 LINE 個人資訊（userId、displayName），這在本系統裡就是員工點餐頁面的入口。LIFF App 必須建立在一個已存在的 Channel 之下，所以要先完成「一、建立 Provider 與 Messaging API Channel」，直接在同一個 Channel 底下加 LIFF，不需要另開一個 Channel。
+
+13. 登入 [LINE Developers Console](https://developers.line.biz/console/)，點進你的 Provider，再點進前面建立的 Messaging API Channel（如「午餐訂購機器人」）。
+14. 在 Channel 詳情頁面上方的分頁列，點「**LIFF**」分頁，再點「Add」新增一個 LIFF App。
+15. 填寫表單：
+    - **LIFF app name**：純粹給你自己在後台辨識用，使用者不會看到，例如「員工點餐頁」。
+    - **Size**：開啟時佔的視窗大小，三選一：`Compact`（螢幕下半部小視窗）／`Tall`（約 2/3 高度）／`Full`（全螢幕）。建議選 **Full**，點餐表單需要比較多空間。
+    - **Endpoint URL**：點餐頁面的網址，例如 `https://your-domain.vercel.app/liff/order`；**必須是 https**，本機 `localhost` 不能直接用（要用 `ngrok` 等工具開臨時 https 網址才能在開發階段測試）。目前還沒有正式網址，可以先填暫定網址，等 Vercel 部署網址確定後再回來改。
+    - **Scope**：只需要勾選 **`profile`**（取得 userId / displayName / 頭像）；不需要 `openid`/`email`，因為身分綁定邏輯是用 userId 比對員工名冊，不需要 email。
+    - **Bot link feature**：建議選 **On (Normal)**——如果員工還沒加 Bot 好友，開啟 LIFF 時會順便引導加好友（員工要先加好友才能收到菜單推播）。
+    - **Scan QR**：不需要勾選。
+16. 點「Add」儲存。建立成功後列表會顯示這個 LIFF App，旁邊有一串 **LIFF ID**（格式類似 `1234567890-AbCdEfGh`）→ 對應 `NEXT_PUBLIC_LINE_LIFF_ID`，點擊即可複製。
+17. **測試方式**：LIFF 網址格式是 `https://liff.line.me/{LIFF ID}`，可以直接貼到聊天視窗測試——在手機 LINE App 裡點擊才會是「嵌入 LINE 內」的效果並能取得使用者資訊；用電腦瀏覽器直接打開只是一般網頁，沒有 LINE 的使用者資訊。
+
+> 之後程式碼會用 `@line/liff` 套件做 `liff.init({ liffId: process.env.NEXT_PUBLIC_LINE_LIFF_ID })`，初始化後呼叫 `liff.getProfile()` 拿到員工的 LINE userId，這部分屬於階段二的開發工作，現在只需要先把 LIFF App 建好、把 LIFF ID 存進 `.env.local`。
 
 > 💡 LINE Messaging API 有免費額度（每月可推送訊息數有上限），公司內部用量通常在免費額度內；人數變多時再留意 LINE 官方計費頁面即可。
 
