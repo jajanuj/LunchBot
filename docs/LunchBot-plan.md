@@ -274,8 +274,8 @@
 #### 階段二：LINE Bot 與 LIFF 點餐流程 — 🔄 進行中
 - [x] 申請並設定 LINE Messaging API（StockBot channel）+ LIFF App（LunchBot 點餐 channel，LIFF ID 已取得）—— `LINE_GROUP_ID` 已透過 Webhook log 取得（測試群組）
 - [x] 實作 Webhook 接收與 `X-Line-Signature` 簽章驗證 —— `/api/line/webhook`，用官方 `@line/bot-sdk`
-- [ ] 實作 Flex Message 菜單推播（同日多場次以 Carousel 多頁卡片合併呈現於同一則訊息）
-- [ ] 實作 LIFF 點餐頁面：身分綁定（防呆）、品項選擇、備註、送出 / 修改 / 取消（upsert 邏輯，無需通知）
+- [x] 實作 Flex Message 菜單推播（同日多場次以 Carousel 多頁卡片合併呈現於同一則訊息）—— `/admin/menus/[id]` 推播按鈕，已實測發送成功
+- [x] 實作 LIFF 點餐頁面：身分綁定（防呆）、品項選擇、備註、送出 / 修改 / 取消（upsert 邏輯，無需通知）—— `/liff/order`
 - [ ] 實作截止時間自動關閉菜單（Vercel Cron / Supabase pg_cron）
 - [ ] 實作截止前提醒推播（依 `reminder_minutes_before` / `reminder_sent_at` 設定，到時間自動發送一次提醒訊息）
 - [ ] 實作助理後台「代客新增/修改訂單」功能（不受收單狀態限制，寫入時標記 `orders.source = 'assisted'`）
@@ -327,6 +327,7 @@
 
 | 版本號 | 修訂日期 | 修訂人員 | 變更類型 | 變更描述與主要修改內容 |
 | :--- | :--- | :--- | :--- | :--- |
+| **v1.6.0** | 2026-06-16 | James | 開發進度更新 | 第 6 節 WBS 階段二新增完成項目：Flex Message 菜單推播（`/admin/menus/[id]`，已實測發送至 LINE 群組成功）、LIFF 點餐頁面（`/liff/order`，含身分綁定/點餐/修改/取消/截止鎖定）。階段二剩餘：截止自動關閉、提醒推播、助理代客下單。 |
 | **v1.5.0** | 2026-06-16 | James | 開發進度更新 | 第 6 節 WBS 階段二標記為「進行中」：LINE Messaging API（StockBot channel）+ LIFF App（LunchBot 點餐 channel）已申請完成、Webhook 接收與簽章驗證已開發完成（`/api/line/webhook`，用 `@line/bot-sdk`）。 |
 | **v1.4.0** | 2026-06-16 | James | 開發進度更新 | 1. 第 6 節 WBS 標記階段一（核心資料庫與點餐後台）全部完成，並加上即時進度指向 `docs/PROGRESS.md` 的提示。<br>2. 新增第 6.1 節「目前卡關的外部帳號申請」，列出階段二、三開工前需要的 LINE Developers / Gemini 帳號與金鑰項目，並指向 PROGRESS.md 的逐步申請教學。 |
 | **v1.3.0** | 2026-06-16 | James | 業務決策確認與設計細化 | 1. 確認同日多場次菜單採「Carousel 多頁卡片」合併呈現，並提供 Flex Message 範例。<br>2. 員工修改/取消訂單改為不通知任何人。<br>3. 確認薪資扣款僅以 CSV 匯出，不對接人資/薪資系統 API。<br>4. 移除 `line_groups` 資料表與 `menus.target_group_id`，改用環境變數設定單一群組。<br>5. 新增 `menu_ai_imports` 資料表，永久保留 Gemini 原始辨識結果供人工比對。<br>6. 新增 `menus.reminder_minutes_before` / `reminder_sent_at`，支援截止前提醒推播。<br>7. 新增 `orders.source`（self/assisted），支援助理後台代客新增/修改訂單（不受收單狀態限制）。<br>8. 第 8 節由「待確認事項」轉為「設計決策紀錄」，記錄上述已確認決策。 |
