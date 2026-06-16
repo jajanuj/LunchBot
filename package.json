@@ -12,9 +12,12 @@
     "test:e2e:employees": "node e2e/employees.test.mjs",
     "test:e2e:employees-bulk": "node e2e/employees-bulk-import.test.mjs",
     "test:e2e:menus": "node e2e/menus.test.mjs",
-    "test:e2e": "npm run test:e2e:smoke && npm run test:e2e:login && npm run test:e2e:employees && npm run test:e2e:employees-bulk && npm run test:e2e:menus"
+    "test:e2e:line-webhook": "node --env-file=.env.local e2e/line-webhook.test.mjs",
+    "test:e2e": "npm run test:e2e:smoke && npm run test:e2e:login && npm run test:e2e:employees && npm run test:e2e:employees-bulk && npm run test:e2e:menus && npm run test:e2e:line-webhook"
   },
   "dependencies": {
+    "@line/bot-sdk": "^11.0.1",
+    "@line/liff": "^2.29.0",
     "next": "16.2.9",
     "react": "19.2.4",
     "react-dom": "19.2.4"
