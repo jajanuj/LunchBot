@@ -92,20 +92,26 @@
     - 其他選填欄位（icon、隱私權政策網址）可先留空
     - **Require two-factor authentication**：與功能無關，保持預設或依帳號安全習慣即可
 18. 建立完成。
-19. **待確認事項**：在這個新 channel 的設定裡找看看有沒有「連結 LINE 官方帳號 / Add friend option」類的設定，可以的話連到 StockBot，這樣員工登入 LIFF 時可以順便引導加 StockBot 好友。如果找不到，先跳過，不影響核心功能。
+
+> ✅ **本專案實際狀況（2026-06-16 確認）：** 已建立 LINE Login channel「**LunchBot 點餐**」，掛在 Provider「TestBot」底下（與 StockBot 同一個 Provider），Region to provide the service / Company or owner's country or region 皆已設為 **Taiwan**。Channel ID：`2010418986`。
+>
+> ⚠️ **這個 channel 自己的 Channel Secret 不需要存進 `.env.local`**——我們的設計只用 LIFF 拿員工的 LINE userId（前端 `liff.init()` + `liff.getProfile()`），不會用到 LINE Login 的伺服器端 OAuth token 交換，所以這組密鑰目前用不到。真正要存的 `LINE_CHANNEL_SECRET` / `LINE_CHANNEL_ACCESS_TOKEN` 是來自 **StockBot**（Messaging API channel），不要混在一起。
+
+19. **Add friend option**：在這個 channel 的「Basic settings」分頁，找到「Add friend option → Linked LINE Official Account」，點「Edit」連結到 StockBot，這樣員工開啟 LIFF 時會順便引導加 StockBot 好友。
+20. 「LINE Login」分頁裡的「Callback URL」可以先留空——我們用的是 LIFF 流程，不會走傳統 LINE Login 的 OAuth callback 機制。
 
 #### 六、在 LINE Login Channel 底下建立 LIFF App
 LIFF（LINE Front-end Framework）讓我們的網頁可以在 LINE App 內嵌開啟，使用者點擊「我要點餐」後不需要額外登入，網頁就能透過 LIFF SDK 拿到目前使用者的 LINE 個人資訊（userId、displayName），這在本系統裡就是員工點餐頁面的入口。
 
-20. 進入剛建立的 LINE Login channel，切到「**LIFF**」分頁，點「Add」新增一個 LIFF App。
-21. 填寫表單：
+21. 進入剛建立的 LINE Login channel，切到「**LIFF**」分頁，點「Add」新增一個 LIFF App。
+22. 填寫表單：
     - **LIFF app name**：純粹給你自己在後台辨識用，使用者不會看到，例如「員工點餐頁」。
     - **Size**：開啟時佔的視窗大小，三選一：`Compact`（螢幕下半部小視窗）／`Tall`（約 2/3 高度）／`Full`（全螢幕）。建議選 **Full**，點餐表單需要比較多空間。
     - **Endpoint URL**：點餐頁面的網址，例如 `https://your-domain.vercel.app/liff/order`；**必須是 https**，本機 `localhost` 不能直接用（要用 `ngrok` 等工具開臨時 https 網址才能在開發階段測試）。目前還沒有正式網址，可以先填暫定網址，等 Vercel 部署網址確定後再回來改。
     - **Scope**：只需要勾選 **`profile`**（取得 userId / displayName / 頭像）；不需要 `openid`/`email`，因為身分綁定邏輯是用 userId 比對員工名冊，不需要 email。
     - 若有看到跟「Bot link feature」類似的設定，可選 On，效果同上一節提到的「連結官方帳號」。
-22. 點「Add」儲存。建立成功後列表會顯示這個 LIFF App，旁邊有一串 **LIFF ID**（格式類似 `1234567890-AbCdEfGh`）→ 對應 `NEXT_PUBLIC_LINE_LIFF_ID`，點擊即可複製。
-23. **測試方式**：LIFF 網址格式是 `https://liff.line.me/{LIFF ID}`，可以直接貼到聊天視窗測試——在手機 LINE App 裡點擊才會是「嵌入 LINE 內」的效果並能取得使用者資訊；用電腦瀏覽器直接打開只是一般網頁，沒有 LINE 的使用者資訊。
+23. 點「Add」儲存。建立成功後列表會顯示這個 LIFF App，旁邊有一串 **LIFF ID**（格式類似 `1234567890-AbCdEfGh`）→ 對應 `NEXT_PUBLIC_LINE_LIFF_ID`，點擊即可複製。
+24. **測試方式**：LIFF 網址格式是 `https://liff.line.me/{LIFF ID}`，可以直接貼到聊天視窗測試——在手機 LINE App 裡點擊才會是「嵌入 LINE 內」的效果並能取得使用者資訊；用電腦瀏覽器直接打開只是一般網頁，沒有 LINE 的使用者資訊。
 
 > ⚠️ **待開發階段驗證的風險點：** LIFF 現在掛在獨立的 LINE Login channel，跟 StockBot（Messaging API channel）是兩個不同 channel。理論上同一個 Provider 底下，同一位 LINE 使用者的 `userId` 在不同 channel 間應該是一致的，但這點需要在階段二實際開發、兩個 channel 都接好之後，**實測驗證 LIFF 的 `liff.getProfile().userId` 跟 Webhook 事件裡收到的 `userId` 是否相同**，再決定是否需要調整身分綁定邏輯。
 
