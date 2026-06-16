@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/auth/dal";
-import { createMenu, closeMenu, deleteMenu } from "@/lib/data/menus";
+import { createMenu, closeMenu, deleteMenu, getMenu, listOpenMenusByDate } from "@/lib/data/menus";
 import { upsertTemplate } from "@/lib/data/storeTemplates";
+import { buildMenuCarouselMessage } from "@/lib/line/flexMessage";
+import { getLineMessagingClient } from "@/lib/line/client";
 
 export type CreateMenuActionState = { error?: string } | undefined;
 
@@ -57,6 +59,52 @@ export async function closeMenuAction(formData: FormData): Promise<void> {
   }
   revalidatePath("/admin/menus");
   revalidatePath(`/admin/menus/${id}`);
+}
+
+export type PushMenuNotificationActionState =
+  | { error?: string; success?: boolean; pushedCount?: number }
+  | undefined;
+
+export async function pushMenuNotificationAction(
+  _prevState: PushMenuNotificationActionState,
+  formData: FormData
+): Promise<PushMenuNotificationActionState> {
+  await verifySession();
+
+  const menuId = String(formData.get("menuId") ?? "");
+  const menu = await getMenu(menuId);
+  if (!menu) {
+    return { error: "找不到這張菜單" };
+  }
+
+  const groupId = process.env.LINE_GROUP_ID;
+  const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
+  if (!groupId) {
+    return { error: "環境變數 LINE_GROUP_ID 未設定，請先在 .env.local 加入（見 docs/PROGRESS.md）" };
+  }
+  if (!liffId) {
+    return { error: "環境變數 NEXT_PUBLIC_LINE_LIFF_ID 未設定" };
+  }
+
+  // 同一天「收單中」的菜單合併成一則 Carousel 訊息一起推播（設計決策見計劃文件）
+  const sameDayOpenMenus = await listOpenMenusByDate(menu.menuDate);
+  if (sameDayOpenMenus.length === 0) {
+    return { error: "這張菜單目前不是收單中狀態，無法推播" };
+  }
+
+  const message = buildMenuCarouselMessage(sameDayOpenMenus, liffId);
+
+  try {
+    const client = getLineMessagingClient();
+    await client.pushMessage({ to: groupId, messages: [message] });
+  } catch (err) {
+    console.error("[push menu notification] 推播失敗：", err);
+    return {
+      error: `推播失敗：${err instanceof Error ? err.message : "未知錯誤"}`,
+    };
+  }
+
+  return { success: true, pushedCount: sameDayOpenMenus.length };
 }
 
 export async function deleteMenuAction(formData: FormData): Promise<void> {

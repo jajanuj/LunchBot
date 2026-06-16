@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getMenu } from "@/lib/data/menus";
 import { closeMenuAction, deleteMenuAction } from "../actions";
+import PushNotificationButton from "./push-notification-button";
 
 const STATUS_LABEL: Record<string, string> = {
   open: "收單中",
@@ -46,6 +47,12 @@ export default async function MenuDetailPage({
           ))}
         </tbody>
       </table>
+
+      {menu.status === "open" && (
+        <div className="mb-4">
+          <PushNotificationButton menuId={menu.id} />
+        </div>
+      )}
 
       <div className="flex gap-4">
         {menu.status === "open" && (

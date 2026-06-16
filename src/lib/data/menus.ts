@@ -41,6 +41,11 @@ export async function getMenu(id: string): Promise<Menu | undefined> {
   return menus.find((m) => m.id === id);
 }
 
+/** 同一天「收單中」的所有菜單，用於合併推播成同一則 Carousel 訊息（見計劃文件設計決策 1）。 */
+export async function listOpenMenusByDate(menuDate: string): Promise<Menu[]> {
+  return menus.filter((m) => m.menuDate === menuDate && m.status === "open");
+}
+
 export type CreateMenuResult = { ok: true; menu: Menu } | { ok: false; error: string };
 
 export async function createMenu(input: CreateMenuInput): Promise<CreateMenuResult> {
