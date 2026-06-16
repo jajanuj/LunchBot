@@ -1,39 +1,13 @@
 // E2E 煙霧測試：確認 Next.js 開發伺服器可正常啟動，且首頁能成功渲染。
-// 用法：npm run test:e2e
+// 用法：npm run test:e2e:smoke
 //
 // 流程：啟動 `next dev` -> 等待 port 就緒 -> 用 Puppeteer 開啟首頁 -> 檢查內容 -> 關閉伺服器。
 import { spawn } from "node:child_process";
 import puppeteer from "puppeteer";
+import { waitForServerReady, killProcessTree } from "./utils.mjs";
 
 const PORT = 3100; // 避免與開發中的 3000 port 衝突
 const URL = `http://localhost:${PORT}`;
-const READY_TIMEOUT_MS = 60_000;
-
-function waitForServerReady(child) {
-  return new Promise((resolve, reject) => {
-    let output = "";
-    const timer = setTimeout(() => {
-      reject(new Error(`等待 dev server 啟動逾時，目前輸出：\n${output}`));
-    }, READY_TIMEOUT_MS);
-
-    const onData = (data) => {
-      output += data.toString();
-      if (/Ready in|started server/i.test(output)) {
-        clearTimeout(timer);
-        resolve();
-      }
-    };
-
-    child.stdout.on("data", onData);
-    child.stderr.on("data", onData);
-    child.on("exit", (code) => {
-      if (code !== null && code !== 0) {
-        clearTimeout(timer);
-        reject(new Error(`dev server 提早結束，exit code: ${code}\n${output}`));
-      }
-    });
-  });
-}
 
 async function main() {
   console.log(`[e2e] 啟動 Next.js dev server（port ${PORT}）...`);
@@ -66,7 +40,7 @@ async function main() {
     console.error("[e2e] ❌ 測試失敗：", err.message);
     exitCode = 1;
   } finally {
-    server.kill();
+    killProcessTree(server);
   }
 
   process.exit(exitCode);

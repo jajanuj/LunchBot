@@ -1,0 +1,28 @@
+import { verifySession } from "@/lib/auth/dal";
+import { logout } from "@/lib/auth/actions";
+
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // 防線之二：proxy 只做樂觀檢查，這裡才是真正的授權檢查（見 dal.ts 註解）
+  const user = await verifySession();
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <header className="flex items-center justify-between border-b px-6 py-4">
+        <span className="font-bold">訂餐暨飲料系統 - 後台</span>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-gray-600">{user.displayName}</span>
+          <form action={logout}>
+            <button type="submit" className="text-sm underline">
+              登出
+            </button>
+          </form>
+        </div>
+      </header>
+      <main className="flex-1 p-6">{children}</main>
+    </div>
+  );
+}
