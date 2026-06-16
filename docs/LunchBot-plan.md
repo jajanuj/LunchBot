@@ -271,9 +271,9 @@
 - [x] 開發 Next.js 後台：店家/菜單 CRUD（手動輸入模式）—— `/admin/menus`
 - [x] 開發歷史樣板（`store_templates` / `template_items`）載入與套用功能 —— 與菜單 CRUD 一併完成
 
-#### 階段二：LINE Bot 與 LIFF 點餐流程 — ⏳ 待處理（需先申請 LINE Developers 帳號，見下方第 6.1 節）
-- [ ] 申請並設定 LINE Messaging API + LIFF App，並以環境變數 `LINE_GROUP_ID` 設定推播目標群組（MVP 僅服務單一群組）
-- [ ] 實作 Webhook 接收與 `X-Line-Signature` 簽章驗證
+#### 階段二：LINE Bot 與 LIFF 點餐流程 — 🔄 進行中
+- [x] 申請並設定 LINE Messaging API（StockBot channel）+ LIFF App（LunchBot 點餐 channel，LIFF ID 已取得）—— `LINE_GROUP_ID` 待 Webhook 部署後從 log 取得
+- [x] 實作 Webhook 接收與 `X-Line-Signature` 簽章驗證 —— `/api/line/webhook`，用官方 `@line/bot-sdk`
 - [ ] 實作 Flex Message 菜單推播（同日多場次以 Carousel 多頁卡片合併呈現於同一則訊息）
 - [ ] 實作 LIFF 點餐頁面：身分綁定（防呆）、品項選擇、備註、送出 / 修改 / 取消（upsert 邏輯，無需通知）
 - [ ] 實作截止時間自動關閉菜單（Vercel Cron / Supabase pg_cron）
@@ -327,6 +327,7 @@
 
 | 版本號 | 修訂日期 | 修訂人員 | 變更類型 | 變更描述與主要修改內容 |
 | :--- | :--- | :--- | :--- | :--- |
+| **v1.5.0** | 2026-06-16 | James | 開發進度更新 | 第 6 節 WBS 階段二標記為「進行中」：LINE Messaging API（StockBot channel）+ LIFF App（LunchBot 點餐 channel）已申請完成、Webhook 接收與簽章驗證已開發完成（`/api/line/webhook`，用 `@line/bot-sdk`）。 |
 | **v1.4.0** | 2026-06-16 | James | 開發進度更新 | 1. 第 6 節 WBS 標記階段一（核心資料庫與點餐後台）全部完成，並加上即時進度指向 `docs/PROGRESS.md` 的提示。<br>2. 新增第 6.1 節「目前卡關的外部帳號申請」，列出階段二、三開工前需要的 LINE Developers / Gemini 帳號與金鑰項目，並指向 PROGRESS.md 的逐步申請教學。 |
 | **v1.3.0** | 2026-06-16 | James | 業務決策確認與設計細化 | 1. 確認同日多場次菜單採「Carousel 多頁卡片」合併呈現，並提供 Flex Message 範例。<br>2. 員工修改/取消訂單改為不通知任何人。<br>3. 確認薪資扣款僅以 CSV 匯出，不對接人資/薪資系統 API。<br>4. 移除 `line_groups` 資料表與 `menus.target_group_id`，改用環境變數設定單一群組。<br>5. 新增 `menu_ai_imports` 資料表，永久保留 Gemini 原始辨識結果供人工比對。<br>6. 新增 `menus.reminder_minutes_before` / `reminder_sent_at`，支援截止前提醒推播。<br>7. 新增 `orders.source`（self/assisted），支援助理後台代客新增/修改訂單（不受收單狀態限制）。<br>8. 第 8 節由「待確認事項」轉為「設計決策紀錄」，記錄上述已確認決策。 |
 | **v1.2.0** | 2026-06-16 | James | 架構審查補強 | 1. 修正 `menus.menu_date` 唯一約束過嚴問題，改為 (menu_date, store_name) 複合約束，支援同日多場次（午餐/下午茶）並行收單。<br>2. 新增 `store_templates` / `template_items` 資料表，補齊第 3 節歷史樣板功能對應的資料庫設計。<br>3. 新增 `line_groups` 資料表，預留多群組廣播擴充彈性。<br>4. 新增 `orders.status`、`payroll_deductions.status` 欄位與 (menu_id, employee_id) 唯一約束，支援截止前修改/取消訂單並避免重複下單與重複扣款。<br>5. 新增 RLS 政策原則、LINE Webhook 簽章驗證、身分綁定防呆、金鑰管理與圖片儲存權限等安全性規範。<br>6. 補完第 6 節 WBS 實際工作項目（原文件為空白佔位）。<br>7. 新增流程三（收單彙整通知）、流程四（月結薪資扣款）流程圖。<br>8. 新增「待確認事項與已知風險」章節，列出需業務面決策之未決問題。 |
