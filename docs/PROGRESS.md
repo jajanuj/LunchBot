@@ -21,14 +21,15 @@
     - 用 ngrok 實測 Webhook 全流程通過：LINE 後台 Verify 成功、群組訊息事件正確被接收與記錄
     - Flex Message 菜單推播：`/admin/menus/[id]` 新增「推播至 LINE 群組」按鈕，同一天收單中的菜單合併成一則 Carousel 訊息推播，已實際發送到測試群組驗證成功（`npm run verify:line-push` 可重複手動驗證，故意不放進自動化測試避免洗群組版面）
     - LIFF 點餐頁面：`/liff/order`，身分綁定（從未綁定名單選姓名，防冒名）+ 點餐（數量/備註）+ upsert 修改 + 取消/重新點餐 + 截止後鎖定唯讀；因 `liff.getProfile()` 需要真實 LINE App 環境，加了僅非正式環境出現的「開發測試模式」身分模擬入口
-    - 截止時間自動關閉菜單：`/api/cron/close-expired-menus`（CRON_SECRET 驗證），`vercel.json` 設定 Vercel Cron 每 10 分鐘呼叫一次
-  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 35 個情境）皆通過
+    - 截止時間自動關閉菜單 + 截止前提醒推播：合併在 `/api/cron/menu-maintenance`（CRON_SECRET 驗證），`vercel.json` 設定 Vercel Cron 每 10 分鐘呼叫一次；新增菜單時可選填「提醒分鐘數」，到期未發送過就推播文字訊息提醒，避免重複發送
+  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 37 個情境）皆通過
 
 - 🔄 **進行中**
   - Supabase 資料庫 schema — `supabase/migrations/0001_init_schema.sql`、`0002_rls_policies.sql` 已依計劃文件第 4 節寫好（9 張表 + RLS），但因 Supabase 專案尚未建立、本機也沒有 psql/docker，**無法實際套用驗證**。待老闆建立 Supabase 專案、提供 Project URL / anon key / service_role key 後即可套用並驗證
 
 - ⏳ **待處理**
-  - WBS 階段二剩餘項目：截止前提醒推播、助理代客新增/修改訂單
+  - WBS 階段二剩餘項目：助理代客新增/修改訂單
+  - 提醒推播的「真的發送成功」只用人工方式驗證過一次（自動化測試只測「沒有提醒到期」分支，避免每次測試都真的發訊息到群組），若之後改了 `buildReminderText()` 或推播邏輯，建議照 `npm run verify:line-push` 的模式寫一個對應的手動驗證腳本
   - 部署到 Vercel 時要確認方案的 Cron 執行頻率限制（Hobby 方案曾經一度限制為每天最多 1 次），若不符合「每 10 分鐘」的設計需求，要評估改成每天固定時段或升級方案
   - 安全性待強化：LIFF 身分目前信任前端傳來的 lineUserId，沒有用 `liff.getIDToken()` 做伺服器端 JWT 驗證（內部 MVP 風險可接受，未來可加強，見 `src/app/liff/order/actions.ts` 註解）
   - WBS 階段三（Gemini AI 菜單辨識）：需要老闆先申請 Google Gemini API Key
