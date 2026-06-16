@@ -19,13 +19,14 @@
     - 外部帳號全部到位：StockBot（Messaging API channel，Channel Access Token / Channel Secret 已取得）、LunchBot 點餐（LINE Login channel，LIFF ID `2010418986-djEPOUcf` 已取得）、測試群組（StockBot 已加入，`LINE_GROUP_ID` 已取得）
     - LINE Webhook 接收與簽章驗證：`/api/line/webhook`，用官方 `@line/bot-sdk` 的 `validateSignature` 驗證，記錄所有事件並偵測群組事件印出 groupId
     - 用 ngrok 實測 Webhook 全流程通過：LINE 後台 Verify 成功、群組訊息事件正確被接收與記錄
-  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 23 個情境）皆通過
+    - Flex Message 菜單推播：`/admin/menus/[id]` 新增「推播至 LINE 群組」按鈕，同一天收單中的菜單合併成一則 Carousel 訊息推播，已實際發送到測試群組驗證成功（`npm run verify:line-push` 可重複手動驗證，故意不放進自動化測試避免洗群組版面）
+  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 24 個情境）皆通過
 
 - 🔄 **進行中**
   - Supabase 資料庫 schema — `supabase/migrations/0001_init_schema.sql`、`0002_rls_policies.sql` 已依計劃文件第 4 節寫好（9 張表 + RLS），但因 Supabase 專案尚未建立、本機也沒有 psql/docker，**無法實際套用驗證**。待老闆建立 Supabase 專案、提供 Project URL / anon key / service_role key 後即可套用並驗證
 
 - ⏳ **待處理**
-  - WBS 階段二剩餘項目：Flex Message 菜單推播、LIFF 點餐頁面、截止時間自動關閉菜單、截止前提醒推播、助理代客新增/修改訂單
+  - WBS 階段二剩餘項目：LIFF 點餐頁面、截止時間自動關閉菜單、截止前提醒推播、助理代客新增/修改訂單
   - WBS 階段三（Gemini AI 菜單辨識）：需要老闆先申請 Google Gemini API Key
   - WBS 階段四（結算彙整與薪資扣款）
   - 階段一所有 mock 資料層（employees / menus / storeTemplates）最終都要換成真正的 Supabase 查詢，待 Supabase 專案建立後一起處理
@@ -36,6 +37,7 @@
   - Next.js 16 把 `middleware.ts` 改名為 `proxy.ts`（功能相同），開發前先查了 `node_modules/next/dist/docs` 才確認，避免寫了舊版檔名導致保護機制悄悄失效。
   - E2E 測試一開始用 `child.kill()` 關閉 `next dev`，在 Windows 上因為 `shell:true` 啟動的是 cmd.exe → npx → node 的程序樹，只會砍掉最外層 cmd.exe，底層 next dev server 變成孤兒程序、一路佔用 port 並持續吃記憶體（曾累積到 4 個殘留 process）。已改用 `taskkill /PID <pid> /T /F` 砍整個程序樹並清掉殘留 process，修正後 `e2e/utils.mjs` 統一處理。
   - 員工名冊 E2E 測試一開始用籤略的 `button[type="submit"]` 選擇器，在同時有「登出」按鈕與表單按鈕的頁面上點錯按鈕；後續測試斷言也誤判過殘留的錯誤訊息文字。兩個都已修正（詳見 commit b4908a3），**之後新增頁面上有多個 submit 按鈕時，務必加明確 id，不要用籤略選擇器**。
+  - 發現這個專案同一時間**只能跑一個 `next dev`**，即使指定不同 port，第二個實例也會啟動失敗（連線被拒）——應該是 Turbopack 的 `.next` build 目錄鎖住了同一專案資料夾。**之後若老闆自己開著 `npm run dev`，要先請他關掉才能跑會自己啟動 dev server 的腳本（`npm run test:e2e:*`、`npm run verify:line-push`）**，`e2e/manual-verify-line-push.mjs` 已加了「偵測 3000 port 有沒有人在跑，有就借用、沒有才自己啟動」的邏輯。
   - 菜單表單的 `date` / `datetime-local` 輸入框用 Puppeteer `page.type()` 不可靠（這類輸入框是多段式編輯，不是單純文字輸入）。改用 `page.evaluate()` 直接設定 DOM `value` 並補發 `input`/`change` 事件，才能讓 React 的 controlled/uncontrolled 欄位都正確收到值。
   - LINE Developers 申請過程中，Channel Access Token 與 Channel Secret 一度完整明碼出現在截圖裡，兩組都立刻請老闆點「Issue」重新簽發、作廢舊的，新的直接存進老闆自己的 `.env.local`，沒有貼進對話紀錄。**之後若需要看 LINE 後台畫面，金鑰類欄位（Channel Secret / Access Token）務必先避開或遮住再截圖**。
   - LINE Webhook 端點是 server-to-server，沒有瀏覽器頁面可以給 Puppeteer 點，`e2e/line-webhook.test.mjs` 改用真實 HTTP request + 用 `.env.local` 裡的真正 Channel Secret 計算簽章來測試，執行時要用 `node --env-file=.env.local` 載入環境變數（npm script 已內建）。
