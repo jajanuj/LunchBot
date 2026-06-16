@@ -272,7 +272,7 @@
 - [x] 開發歷史樣板（`store_templates` / `template_items`）載入與套用功能 —— 與菜單 CRUD 一併完成
 
 #### 階段二：LINE Bot 與 LIFF 點餐流程 — 🔄 進行中
-- [x] 申請並設定 LINE Messaging API（StockBot channel）+ LIFF App（LunchBot 點餐 channel，LIFF ID 已取得）—— `LINE_GROUP_ID` 待 Webhook 部署後從 log 取得
+- [x] 申請並設定 LINE Messaging API（StockBot channel）+ LIFF App（LunchBot 點餐 channel，LIFF ID 已取得）—— `LINE_GROUP_ID` 已透過 Webhook log 取得（測試群組）
 - [x] 實作 Webhook 接收與 `X-Line-Signature` 簽章驗證 —— `/api/line/webhook`，用官方 `@line/bot-sdk`
 - [ ] 實作 Flex Message 菜單推播（同日多場次以 Carousel 多頁卡片合併呈現於同一則訊息）
 - [ ] 實作 LIFF 點餐頁面：身分綁定（防呆）、品項選擇、備註、送出 / 修改 / 取消（upsert 邏輯，無需通知）

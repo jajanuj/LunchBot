@@ -16,8 +16,9 @@
     - 菜單管理：`/admin/menus`，手動輸入（動態品項列）+ 歷史樣板套用（自動帶入店家/品項，可同步存為新樣板）+ 結單/刪除
     - 上述 employees / menus / storeTemplates 三個資料層皆先用記憶體陣列頂著，介面設計成之後可直接換成 Supabase 查詢
   - **WBS 階段二進行中**：
-    - 外部帳號已到位：StockBot（Messaging API channel，已取得 Channel Access Token / Channel Secret）、LunchBot 點餐（LINE Login channel，LIFF ID `2010418986-djEPOUcf` 已取得）
+    - 外部帳號全部到位：StockBot（Messaging API channel，Channel Access Token / Channel Secret 已取得）、LunchBot 點餐（LINE Login channel，LIFF ID `2010418986-djEPOUcf` 已取得）、測試群組（StockBot 已加入，`LINE_GROUP_ID` 已取得）
     - LINE Webhook 接收與簽章驗證：`/api/line/webhook`，用官方 `@line/bot-sdk` 的 `validateSignature` 驗證，記錄所有事件並偵測群組事件印出 groupId
+    - 用 ngrok 實測 Webhook 全流程通過：LINE 後台 Verify 成功、群組訊息事件正確被接收與記錄
   - `npm run build` / `npm run lint` / `npm run test:e2e`（共 23 個情境）皆通過
 
 - 🔄 **進行中**
@@ -25,7 +26,6 @@
 
 - ⏳ **待處理**
   - WBS 階段二剩餘項目：Flex Message 菜單推播、LIFF 點餐頁面、截止時間自動關閉菜單、截止前提醒推播、助理代客新增/修改訂單
-  - 把 StockBot 實際加入公司 LINE 群組、用 Webhook log 取得 `LINE_GROUP_ID`（待 Webhook 部署到有對外網址的環境，或用 ngrok 臨時測試）
   - WBS 階段三（Gemini AI 菜單辨識）：需要老闆先申請 Google Gemini API Key
   - WBS 階段四（結算彙整與薪資扣款）
   - 階段一所有 mock 資料層（employees / menus / storeTemplates）最終都要換成真正的 Supabase 查詢，待 Supabase 專案建立後一起處理
@@ -39,6 +39,7 @@
   - 菜單表單的 `date` / `datetime-local` 輸入框用 Puppeteer `page.type()` 不可靠（這類輸入框是多段式編輯，不是單純文字輸入）。改用 `page.evaluate()` 直接設定 DOM `value` 並補發 `input`/`change` 事件，才能讓 React 的 controlled/uncontrolled 欄位都正確收到值。
   - LINE Developers 申請過程中，Channel Access Token 與 Channel Secret 一度完整明碼出現在截圖裡，兩組都立刻請老闆點「Issue」重新簽發、作廢舊的，新的直接存進老闆自己的 `.env.local`，沒有貼進對話紀錄。**之後若需要看 LINE 後台畫面，金鑰類欄位（Channel Secret / Access Token）務必先避開或遮住再截圖**。
   - LINE Webhook 端點是 server-to-server，沒有瀏覽器頁面可以給 Puppeteer 點，`e2e/line-webhook.test.mjs` 改用真實 HTTP request + 用 `.env.local` 裡的真正 Channel Secret 計算簽章來測試，執行時要用 `node --env-file=.env.local` 載入環境變數（npm script 已內建）。
+  - 用 ngrok 串接真實 LINE Webhook 測試時，一度收到 LINE 後台「404 Not Found」的驗證失敗。原因是老闆電腦上同時跑著另一個專案（StarDuty 星際學院，`D:\WebSite\StartDust`）佔住了 port 3000，LunchBot 的 `npm run dev` 偵測到後自動換到 3001，但 ngrok 還是轉去 3000，打到別的專案去了。**之後若 `npm run dev` 沒有顯示 `Local: http://localhost:3000`，要先確認有沒有其他專案佔用 3000**，不要假設一定是 3000。已協助關閉 StarDuty 的 process 讓 LunchBot 拿回 3000，問題排除。
 
 ---
 
@@ -49,9 +50,9 @@
 | 服務 | 需要的項目 | 用途 | 目前狀態 | 對應環境變數（見 `.env.local.example`） |
 |---|---|---|---|---|
 | Supabase | Project URL / anon key / service_role key | 正式資料庫（schema 已寫好待套用） | 尚未建立專案 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` |
-| LINE Developers - Messaging API（StockBot channel） | Channel Access Token / Channel Secret | 建立 LINE Bot、推送 Flex Message、驗證 Webhook 簽章 | 尚未取得 | `LINE_CHANNEL_ACCESS_TOKEN` / `LINE_CHANNEL_SECRET` |
+| LINE Developers - Messaging API（StockBot channel） | Channel Access Token / Channel Secret | 建立 LINE Bot、推送 Flex Message、驗證 Webhook 簽章 | ✅ **已取得**（已存進 `.env.local`，曾經明碼曝光過已重新簽發） | `LINE_CHANNEL_ACCESS_TOKEN` / `LINE_CHANNEL_SECRET` |
 | LINE Developers - LIFF（LunchBot 點餐 channel） | LIFF ID | 員工點餐頁面（LIFF App） | ✅ **已取得**：`2010418986-djEPOUcf` | `NEXT_PUBLIC_LINE_LIFF_ID` |
-| LINE 群組 | 群組 ID | 推播目標群組 | 尚未取得（要先把 Bot 加入群組才能取得，見下方步驟 12） | `LINE_GROUP_ID` |
+| LINE 群組 | 群組 ID | 推播目標群組 | ✅ **已取得**（測試群組，StockBot 已加入）：`Cdd92ab1b9874fa917a7237626a26b51d` | `LINE_GROUP_ID` |
 | Google Gemini | API Key | 菜單圖片 AI 辨識 | 尚未申請 | `GEMINI_API_KEY` |
 
 拿到金鑰後，請依 `.env.local.example` 把對應的環境變數加進你自己電腦的 `.env.local`（此檔已被 `.gitignore` 排除、不會進版控）。**金鑰不需要貼給我**，你自己填好存檔即可，下次接手開發時會自動讀到。
@@ -85,7 +86,9 @@
 #### 四、把 Bot 加入內部群組，取得群組 ID
 12. 用手機 LINE 掃描 StockBot channel 頁面的 QR Code，把 Bot 加為好友。
 13. 把 Bot 邀請加入公司內部要收點餐通知的 LINE 群組。
-14. 群組 ID 沒有地方能直接「看到」，要透過程式取得：Bot 加入群組後，群組裡有任何訊息事件，Webhook 收到的內容裡 `source.groupId` 就是群組 ID。等階段二把 Webhook 接好後，我會先加一行記錄把這個值印出來，你看 log 把它存進 `.env.local` 即可，**現在不用急著處理這一步**。
+14. 群組 ID 沒有地方能直接「看到」，要透過程式取得：Bot 加入群組後，群組裡有任何訊息事件，Webhook 收到的內容裡 `source.groupId` 就是群組 ID。
+
+> ✅ **已完成（2026-06-16）：** 用 ngrok 把本機 `/api/line/webhook` 暴露出來、在 LINE Developers 設好 Webhook URL 並 Verify 通過後，建立測試群組、把 StockBot 加入、在群組發一句話，Webhook log 印出 `groupId = Cdd92ab1b9874fa917a7237626a26b51d`，已存進 `.env.local` 的 `LINE_GROUP_ID`。
 
 #### 五、建立 LINE Login Channel（放 LIFF 用）
 > ⚠️ **2026 更新：LINE 又改規則**，LIFF App 現在**不能**加在 Messaging API channel 底下了（畫面會顯示「You can no longer add LIFF apps to a Messaging API channel. Use a LINE Login channel instead.」），必須另外建一個獨立的 **LINE Login channel** 來放 LIFF。LINE 同時把 LIFF 往「LINE MINI App」品牌整合，但那需要服務地區是日本、或台灣且經當地子公司審核通過才能用，我們不符合資格就**繼續用傳統 LIFF**即可，不用碰 MINI App。
