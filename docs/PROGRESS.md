@@ -15,13 +15,18 @@
     - 員工名冊管理：`/admin/employees`，手動新增（防重複）/ 批次匯入（貼名單或上傳 .csv/.txt，回報成功/略過摘要）/ 列表（含 LINE 綁定狀態）/ 刪除
     - 菜單管理：`/admin/menus`，手動輸入（動態品項列）+ 歷史樣板套用（自動帶入店家/品項，可同步存為新樣板）+ 結單/刪除
     - 上述 employees / menus / storeTemplates 三個資料層皆先用記憶體陣列頂著，介面設計成之後可直接換成 Supabase 查詢
-  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 18 個情境）皆通過
+  - **WBS 階段二進行中**：
+    - 外部帳號已到位：StockBot（Messaging API channel，已取得 Channel Access Token / Channel Secret）、LunchBot 點餐（LINE Login channel，LIFF ID `2010418986-djEPOUcf` 已取得）
+    - LINE Webhook 接收與簽章驗證：`/api/line/webhook`，用官方 `@line/bot-sdk` 的 `validateSignature` 驗證，記錄所有事件並偵測群組事件印出 groupId
+  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 23 個情境）皆通過
 
 - 🔄 **進行中**
   - Supabase 資料庫 schema — `supabase/migrations/0001_init_schema.sql`、`0002_rls_policies.sql` 已依計劃文件第 4 節寫好（9 張表 + RLS），但因 Supabase 專案尚未建立、本機也沒有 psql/docker，**無法實際套用驗證**。待老闆建立 Supabase 專案、提供 Project URL / anon key / service_role key 後即可套用並驗證
 
 - ⏳ **待處理**
-  - WBS 階段二（LINE Bot / LIFF）、階段三（Gemini AI 菜單辨識）：需要老闆先申請 LINE Developers（Channel Access Token/Secret、LIFF ID）與 Google Gemini API Key，這兩塊無法用 mock 完整模擬（LIFF 本質要在真實 LINE App / 真實 LIFF ID 下才能驗證），待老闆處理好外部帳號後再開工
+  - WBS 階段二剩餘項目：Flex Message 菜單推播、LIFF 點餐頁面、截止時間自動關閉菜單、截止前提醒推播、助理代客新增/修改訂單
+  - 把 StockBot 實際加入公司 LINE 群組、用 Webhook log 取得 `LINE_GROUP_ID`（待 Webhook 部署到有對外網址的環境，或用 ngrok 臨時測試）
+  - WBS 階段三（Gemini AI 菜單辨識）：需要老闆先申請 Google Gemini API Key
   - WBS 階段四（結算彙整與薪資扣款）
   - 階段一所有 mock 資料層（employees / menus / storeTemplates）最終都要換成真正的 Supabase 查詢，待 Supabase 專案建立後一起處理
 
@@ -32,6 +37,8 @@
   - E2E 測試一開始用 `child.kill()` 關閉 `next dev`，在 Windows 上因為 `shell:true` 啟動的是 cmd.exe → npx → node 的程序樹，只會砍掉最外層 cmd.exe，底層 next dev server 變成孤兒程序、一路佔用 port 並持續吃記憶體（曾累積到 4 個殘留 process）。已改用 `taskkill /PID <pid> /T /F` 砍整個程序樹並清掉殘留 process，修正後 `e2e/utils.mjs` 統一處理。
   - 員工名冊 E2E 測試一開始用籤略的 `button[type="submit"]` 選擇器，在同時有「登出」按鈕與表單按鈕的頁面上點錯按鈕；後續測試斷言也誤判過殘留的錯誤訊息文字。兩個都已修正（詳見 commit b4908a3），**之後新增頁面上有多個 submit 按鈕時，務必加明確 id，不要用籤略選擇器**。
   - 菜單表單的 `date` / `datetime-local` 輸入框用 Puppeteer `page.type()` 不可靠（這類輸入框是多段式編輯，不是單純文字輸入）。改用 `page.evaluate()` 直接設定 DOM `value` 並補發 `input`/`change` 事件，才能讓 React 的 controlled/uncontrolled 欄位都正確收到值。
+  - LINE Developers 申請過程中，Channel Access Token 與 Channel Secret 一度完整明碼出現在截圖裡，兩組都立刻請老闆點「Issue」重新簽發、作廢舊的，新的直接存進老闆自己的 `.env.local`，沒有貼進對話紀錄。**之後若需要看 LINE 後台畫面，金鑰類欄位（Channel Secret / Access Token）務必先避開或遮住再截圖**。
+  - LINE Webhook 端點是 server-to-server，沒有瀏覽器頁面可以給 Puppeteer 點，`e2e/line-webhook.test.mjs` 改用真實 HTTP request + 用 `.env.local` 裡的真正 Channel Secret 計算簽章來測試，執行時要用 `node --env-file=.env.local` 載入環境變數（npm script 已內建）。
 
 ---
 
@@ -146,3 +153,4 @@ LIFF（LINE Front-end Framework）讓我們的網頁可以在 LINE App 內嵌開
 | Supabase RLS 架構 | 前端不直接連 Supabase，一律經由 Next.js API Route + service_role key；anon/authenticated 角色預設拒絕所有存取（待老闆確認，詳見 `supabase/migrations/0002_rls_policies.sql` 註解） | 2026-06-16 |
 | 後台登入機制 | 完整帳號系統（每位助理獨立帳號），但因 Supabase 尚未建立先用 mock 帳號頂著，介面設計成之後可直接換成 Supabase Auth | 2026-06-16 |
 | 菜單管理範圍 | 手動輸入 + 歷史樣板套用一次做完（不分兩次） | 2026-06-16 |
+| LINE 整合套件 | 用官方 SDK：`@line/bot-sdk`（伺服器端簽章驗證 + Messaging API）、`@line/liff`（前端 LIFF），不自己用 crypto/fetch 重寫 | 2026-06-16 |
