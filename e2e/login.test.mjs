@@ -44,7 +44,7 @@ async function main() {
       await page.type("#email", "wrong@lunchbot.local");
       await page.type("#password", "wrongpassword");
       await Promise.all([
-        page.click('button[type="submit"]'),
+        page.click("#login-submit"),
         page.waitForNetworkIdle(),
       ]);
       const errorText = await page
@@ -62,7 +62,7 @@ async function main() {
       await page.type("#email", MOCK_EMAIL);
       await page.type("#password", MOCK_PASSWORD);
       await Promise.all([
-        page.click('button[type="submit"]'),
+        page.click("#login-submit"),
         page.waitForNetworkIdle(),
       ]);
       assert(
@@ -75,7 +75,7 @@ async function main() {
 
       // 4. 登出 -> 回到 /login，且再訪問 /admin 又被導回 /login
       await Promise.all([
-        page.click('button[type="submit"]'), // layout 裡的登出按鈕
+        page.click("#logout-submit"), // layout 裡的登出按鈕
         page.waitForNetworkIdle(),
       ]);
       assert(page.url().startsWith(`${BASE_URL}/login`), "登出後應回到 /login");

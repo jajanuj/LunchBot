@@ -43,6 +43,7 @@ export default function LoginForm() {
       )}
 
       <button
+        id="login-submit"
         type="submit"
         disabled={pending}
         className="bg-black text-white rounded px-4 py-2 disabled:opacity-50"

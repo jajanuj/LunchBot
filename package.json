@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test:e2e:smoke": "node e2e/smoke.test.mjs",
     "test:e2e:login": "node e2e/login.test.mjs",
-    "test:e2e": "npm run test:e2e:smoke && npm run test:e2e:login"
+    "test:e2e:employees": "node e2e/employees.test.mjs",
+    "test:e2e": "npm run test:e2e:smoke && npm run test:e2e:login && npm run test:e2e:employees"
   },
   "dependencies": {
     "next": "16.2.9",

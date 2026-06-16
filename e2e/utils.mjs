@@ -49,3 +49,18 @@ export function killProcessTree(child) {
 export function assert(condition, message) {
   if (!condition) throw new Error(`斷言失敗：${message}`);
 }
+
+/** 共用登入流程：填表單送出，並等待導向 /admin。 */
+export async function loginAsMockAdmin(page, baseUrl) {
+  const email = process.env.MOCK_ADMIN_EMAIL ?? "admin@lunchbot.local";
+  const password = process.env.MOCK_ADMIN_PASSWORD ?? "changeme123";
+
+  await page.goto(`${baseUrl}/login`, { waitUntil: "networkidle0" });
+  await page.type("#email", email);
+  await page.type("#password", password);
+  await Promise.all([
+    page.click("#login-submit"),
+    page.waitForNetworkIdle(),
+  ]);
+  assert(page.url().startsWith(`${baseUrl}/admin`), `登入後應進入 /admin，實際：${page.url()}`);
+}

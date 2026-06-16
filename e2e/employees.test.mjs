@@ -1,0 +1,89 @@
+// E2E 測試：後台員工名冊管理
+// 用法：npm run test:e2e:employees
+//
+// 涵蓋情境：
+//   1. 登入後進入 /admin/employees，看到種子員工列表
+//   2. 新增一位員工 -> 出現在列表中
+//   3. 新增同名員工 -> 顯示錯誤訊息，不會重複新增
+//   4. 刪除剛新增的員工 -> 從列表消失
+import { spawn } from "node:child_process";
+import puppeteer from "puppeteer";
+import { waitForServerReady, killProcessTree, assert, loginAsMockAdmin } from "./utils.mjs";
+
+const PORT = 3103;
+const BASE_URL = `http://localhost:${PORT}`;
+const NEW_NAME = `測試員工_${Date.now()}`;
+
+async function main() {
+  console.log(`[e2e:employees] 啟動 Next.js dev server（port ${PORT}）...`);
+  const server = spawn(`npx next dev -p ${PORT}`, { shell: true, cwd: process.cwd() });
+
+  let exitCode = 0;
+  try {
+    await waitForServerReady(server);
+    console.log("[e2e:employees] dev server 已就緒，開始測試...");
+
+    const browser = await puppeteer.launch();
+    try {
+      const page = await browser.newPage();
+      await loginAsMockAdmin(page, BASE_URL);
+
+      // 1. 進入員工名冊，看到種子資料（只看 table 內容，避免上方錯誤訊息殘留干擾判斷）
+      await page.goto(`${BASE_URL}/admin/employees`, { waitUntil: "networkidle0" });
+      let tableText = await page.$eval("table", (el) => el.innerText);
+      assert(tableText.includes("王小明"), "應看到種子員工「王小明」");
+      console.log("[e2e:employees] ✅ 看到種子員工列表");
+
+      // 2. 新增員工
+      await page.type("#employeeName", NEW_NAME);
+      await Promise.all([
+        page.click("#add-employee-submit"),
+        page.waitForNetworkIdle(),
+      ]);
+      tableText = await page.$eval("table", (el) => el.innerText);
+      assert(tableText.includes(NEW_NAME), `新增後應看到「${NEW_NAME}」`);
+      console.log("[e2e:employees] ✅ 新增員工成功並顯示在列表");
+
+      // 3. 新增同名員工 -> 應顯示錯誤
+      await page.type("#employeeName", NEW_NAME);
+      await Promise.all([
+        page.click("#add-employee-submit"),
+        page.waitForNetworkIdle(),
+      ]);
+      const errorText = await page
+        .$eval("[role='alert']", (el) => el.textContent)
+        .catch(() => null);
+      assert(errorText && errorText.includes("已存在"), `重複姓名應顯示錯誤，實際：${errorText}`);
+      console.log("[e2e:employees] ✅ 重複姓名正確顯示錯誤訊息");
+
+      // 4. 刪除剛新增的員工
+      const deleteButtonHandle = await page.evaluateHandle((name) => {
+        const rows = Array.from(document.querySelectorAll("tbody tr"));
+        const row = rows.find((r) => r.textContent.includes(name));
+        return row ? row.querySelector('button[type="submit"]') : null;
+      }, NEW_NAME);
+      assert(deleteButtonHandle, "應找到該員工的刪除按鈕");
+      await Promise.all([
+        deleteButtonHandle.asElement().click(),
+        page.waitForNetworkIdle(),
+      ]);
+      tableText = await page.$eval("table", (el) => el.innerText);
+      assert(
+        !tableText.includes(NEW_NAME),
+        "刪除後不應再看到該員工（注意：上方殘留的錯誤訊息仍會包含此姓名，故只檢查 table 內容）"
+      );
+      console.log("[e2e:employees] ✅ 刪除員工成功");
+    } finally {
+      await browser.close();
+    }
+  } catch (err) {
+    console.error("[e2e:employees] ❌ 測試失敗：", err.message);
+    exitCode = 1;
+  } finally {
+    killProcessTree(server);
+  }
+
+  process.exit(exitCode);
+}
+
+main();

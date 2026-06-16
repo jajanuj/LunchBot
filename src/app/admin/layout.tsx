@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { verifySession } from "@/lib/auth/dal";
 import { logout } from "@/lib/auth/actions";
 
@@ -13,10 +14,18 @@ export default async function AdminLayout({
     <div className="min-h-screen flex flex-col">
       <header className="flex items-center justify-between border-b px-6 py-4">
         <span className="font-bold">訂餐暨飲料系統 - 後台</span>
+        <nav className="flex items-center gap-4 text-sm">
+          <Link href="/admin" className="underline">
+            首頁
+          </Link>
+          <Link href="/admin/employees" className="underline">
+            員工名冊
+          </Link>
+        </nav>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-600">{user.displayName}</span>
           <form action={logout}>
-            <button type="submit" className="text-sm underline">
+            <button id="logout-submit" type="submit" className="text-sm underline">
               登出
             </button>
           </form>
