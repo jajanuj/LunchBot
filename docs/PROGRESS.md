@@ -9,15 +9,16 @@
 - ✅ **已完成**
   - 專案骨架初始化：Next.js 16 (App Router) + TypeScript + Tailwind CSS + ESLint
   - 已設定 Git 版控（git init + commits）
-  - E2E 測試環境：Puppeteer，`e2e/smoke.test.mjs`（首頁渲染）、`e2e/login.test.mjs`（登入/登出 4 種情境），共用工具 `e2e/utils.mjs`
+  - E2E 測試環境：Puppeteer，`e2e/smoke.test.mjs`（首頁渲染）、`e2e/login.test.mjs`（登入/登出 4 種情境）、`e2e/employees.test.mjs`（員工名冊 4 種情境），共用工具 `e2e/utils.mjs`
   - 後台登入機制：mock 帳號（scrypt 雜湊）+ HMAC 簽章 session cookie + Next.js 16 `proxy.ts`（樂觀導向）+ DAL `verifySession()`（安全檢查），`/login`、`/admin` 頁面，介面設計成之後可直接換成 Supabase Auth
+  - 員工名冊管理：`/admin/employees`，手動新增（防重複姓名）/ 列表（含 LINE 綁定狀態）/ 刪除，資料層 `src/lib/data/employees.ts` 先用記憶體陣列頂著，介面設計成之後可直接換成 Supabase
   - `npm run build` / `npm run lint` / `npm run test:e2e` 皆通過
 
 - 🔄 **進行中**
   - 階段一：Supabase 資料庫 schema — `supabase/migrations/0001_init_schema.sql`、`0002_rls_policies.sql` 已依計劃文件第 4 節寫好（9 張表 + RLS），但因 Supabase 專案尚未建立、本機也沒有 psql/docker，**無法實際套用驗證**。待老闆建立 Supabase 專案、提供 Project URL / anon key / service_role key 後即可套用並驗證，屆時才能標記為完成
 
 - ⏳ **待處理（依 `docs/LunchBot-plan.md` 第 6 節 WBS 順序）**
-  - 階段一：`employees` 員工名冊匯入機制
+  - 階段一：員工名冊 CSV 批次匯入（目前只做了手動新增，批次匯入尚未做）
   - 階段一：Next.js 後台 店家/菜單 CRUD（手動輸入模式）
   - 階段一：歷史樣板載入與套用功能
   - 階段二、三、四：依 WBS 順序開發（LINE Bot/LIFF、AI 菜單辨識、結算與薪資扣款）
@@ -27,6 +28,7 @@
   - Supabase / LINE / Gemini 等外部服務目前皆尚未建立帳號或取得金鑰，相關任務會先以本機可獨立驗證的方式（如 SQL migration 檔案、Mock 資料）進行，待老闆提供實際憑證後再串接。
   - Next.js 16 把 `middleware.ts` 改名為 `proxy.ts`（功能相同），開發前先查了 `node_modules/next/dist/docs` 才確認，避免寫了舊版檔名導致保護機制悄悄失效。
   - E2E 測試一開始用 `child.kill()` 關閉 `next dev`，在 Windows 上因為 `shell:true` 啟動的是 cmd.exe → npx → node 的程序樹，只會砍掉最外層 cmd.exe，底層 next dev server 變成孤兒程序、一路佔用 port 並持續吃記憶體（曾累積到 4 個殘留 process）。已改用 `taskkill /PID <pid> /T /F` 砍整個程序樹並清掉殘留 process，修正後 `e2e/utils.mjs` 統一處理。
+  - 員工名冊 E2E 測試一開始用籤略的 `button[type="submit"]` 選擇器，在同時有「登出」按鈕與表單按鈕的頁面上點錯按鈕；後續測試斷言也誤判過殘留的錯誤訊息文字。兩個都已修正（詳見 commit b4908a3），**之後新增頁面上有多個 submit 按鈕時，務必加明確 id，不要用籤略選擇器**。
 
 ---
 
