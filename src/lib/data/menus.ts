@@ -24,6 +24,8 @@ export type Menu = {
   sessionName: string | null;
   storeName: string;
   cutoffTime: string; // ISO datetime
+  reminderMinutesBefore: number | null;
+  reminderSentAt: string | null;
   status: MenuStatus;
   items: MenuItemRecord[];
 };
@@ -35,6 +37,7 @@ export type CreateMenuInput = {
   sessionName: string | null;
   storeName: string;
   cutoffTime: string;
+  reminderMinutesBefore?: number | null;
   items: MenuItemInput[];
 };
 
@@ -90,6 +93,11 @@ export async function createMenu(input: CreateMenuInput): Promise<CreateMenuResu
     sessionName: input.sessionName?.trim() || null,
     storeName,
     cutoffTime: input.cutoffTime,
+    reminderMinutesBefore:
+      input.reminderMinutesBefore && input.reminderMinutesBefore > 0
+        ? input.reminderMinutesBefore
+        : null,
+    reminderSentAt: null,
     status: "open",
     items: validItems.map((i) => ({
       id: randomUUID(),
@@ -105,6 +113,27 @@ export async function closeMenu(id: string): Promise<void> {
   const menu = menus.find((m) => m.id === id);
   if (menu) {
     menu.status = "closed";
+  }
+}
+
+/**
+ * 找出「收單中、設定了提醒分鐘數、還沒發過提醒、且現在已經進入提醒區間」
+ * 的菜單（對應計劃文件流程三的提醒分支）。
+ */
+export async function findMenusDueForReminder(now: Date = new Date()): Promise<Menu[]> {
+  return menus.filter((menu) => {
+    if (menu.status !== "open") return false;
+    if (!menu.reminderMinutesBefore) return false;
+    if (menu.reminderSentAt) return false;
+    const reminderAt = new Date(menu.cutoffTime).getTime() - menu.reminderMinutesBefore * 60_000;
+    return now.getTime() >= reminderAt;
+  });
+}
+
+export async function markReminderSent(id: string, sentAt: Date = new Date()): Promise<void> {
+  const menu = menus.find((m) => m.id === id);
+  if (menu) {
+    menu.reminderSentAt = sentAt.toISOString();
   }
 }
 

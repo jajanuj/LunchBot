@@ -20,6 +20,7 @@ export async function createMenuAction(
   const sessionName = String(formData.get("sessionName") ?? "");
   const storeName = String(formData.get("storeName") ?? "");
   const cutoffTime = String(formData.get("cutoffTime") ?? "");
+  const reminderMinutesBeforeRaw = String(formData.get("reminderMinutesBefore") ?? "");
   const itemNames = formData.getAll("itemName").map(String);
   const itemPrices = formData.getAll("itemPrice").map(String);
   const saveAsTemplate = formData.get("saveAsTemplate") === "on";
@@ -34,6 +35,7 @@ export async function createMenuAction(
     sessionName: sessionName || null,
     storeName,
     cutoffTime,
+    reminderMinutesBefore: reminderMinutesBeforeRaw ? Number(reminderMinutesBeforeRaw) : null,
     items,
   });
 

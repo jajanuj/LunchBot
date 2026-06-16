@@ -93,3 +93,9 @@ export function buildMenuCarouselMessage(
     },
   };
 }
+
+/** 截止前提醒推播的純文字訊息（對應計劃文件流程三範例：「午餐 12:00 截止，尚未點餐請盡速」）。 */
+export function buildReminderText(menu: Menu): string {
+  const title = menu.sessionName ?? menu.storeName;
+  return `⏰ ${title}將於 ${formatCutoffTime(menu.cutoffTime)} 截止收單，尚未點餐請盡速！`;
+}

@@ -115,6 +115,20 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
         </div>
       </div>
 
+      <div className="flex flex-col gap-1 max-w-xs">
+        <label htmlFor="reminderMinutesBefore" className="text-sm font-medium">
+          截止前提醒推播（選填，分鐘）
+        </label>
+        <input
+          id="reminderMinutesBefore"
+          name="reminderMinutesBefore"
+          type="number"
+          min={0}
+          placeholder="例如 30（留空表示不提醒）"
+          className="border rounded px-3 py-2"
+        />
+      </div>
+
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium">品項與價格</span>
         {items.map((row, index) => (

@@ -1,9 +1,14 @@
-// E2E 測試：截止時間自動關閉菜單的排程端點
-// 用法：npm run test:e2e:cron-close-menus
+// E2E 測試：菜單維護排程端點（自動結單部分）
+// 用法：npm run test:e2e:cron-menu-maintenance
 //
 // 這個端點是排程觸發（Vercel Cron），不是給人點的頁面：用 Puppeteer 建立
-// 一張「截止時間在過去」的測試菜單，再用真實 HTTP request 呼叫排程端點，
-// 確認該菜單被自動關閉、且未過期的菜單不會被誤關。
+// 測試菜單，再用真實 HTTP request 呼叫排程端點，確認過期菜單被自動關閉、
+// 未過期菜單不受影響。
+//
+// 提醒推播那一段刻意只測「沒有提醒到期」的情況（remindersSentCount 應為
+// 0），不在這裡測「真的觸發提醒」——那會真的呼叫 LINE API 在群組裡發訊息，
+// 不適合放進可重複執行的自動化測試。提醒判斷邏輯本身的單元測試見
+// e2e/menu-reminder-logic.test.mjs。
 import { spawn } from "node:child_process";
 import puppeteer from "puppeteer";
 import { waitForServerReady, killProcessTree, assert, loginAsMockAdmin } from "./utils.mjs";
@@ -14,8 +19,8 @@ const CRON_SECRET = process.env.CRON_SECRET;
 
 if (!CRON_SECRET) {
   console.error(
-    "[e2e:cron-close-menus] ❌ 找不到環境變數 CRON_SECRET。\n" +
-      "請用「node --env-file=.env.local e2e/cron-close-expired-menus.test.mjs」執行（npm script 已內建這個 flag）。"
+    "[e2e:cron-menu-maintenance] ❌ 找不到環境變數 CRON_SECRET。\n" +
+      "請用「node --env-file=.env.local e2e/cron-menu-maintenance.test.mjs」執行（npm script 已內建這個 flag）。"
   );
   process.exit(1);
 }
@@ -66,13 +71,13 @@ async function createMenu(page, { storeName, cutoffTime }) {
 }
 
 async function main() {
-  console.log(`[e2e:cron-close-menus] 啟動 Next.js dev server（port ${PORT}）...`);
+  console.log(`[e2e:cron-menu-maintenance] 啟動 Next.js dev server（port ${PORT}）...`);
   const server = spawn(`npx next dev -p ${PORT}`, { shell: true, cwd: process.cwd() });
 
   let exitCode = 0;
   try {
     await waitForServerReady(server);
-    console.log("[e2e:cron-close-menus] dev server 已就緒，開始測試...");
+    console.log("[e2e:cron-menu-maintenance] dev server 已就緒，開始測試...");
 
     const browser = await puppeteer.launch();
     try {
@@ -88,35 +93,39 @@ async function main() {
       const activeMenuId = await createMenu(page, { storeName: activeStoreName, cutoffTime: futureTime });
 
       // 1. 沒帶正確密鑰 -> 401
-      const unauthorizedRes = await fetch(`${BASE_URL}/api/cron/close-expired-menus`, {
+      const unauthorizedRes = await fetch(`${BASE_URL}/api/cron/menu-maintenance`, {
         headers: { Authorization: "Bearer wrong-secret" },
       });
       assert(unauthorizedRes.status === 401, `錯誤密鑰應回 401，實際：${unauthorizedRes.status}`);
-      console.log("[e2e:cron-close-menus] ✅ 錯誤密鑰正確被拒絕");
+      console.log("[e2e:cron-menu-maintenance] ✅ 錯誤密鑰正確被拒絕");
 
-      // 2. 正確密鑰 -> 過期菜單被關閉，未過期菜單不受影響
-      const res = await fetch(`${BASE_URL}/api/cron/close-expired-menus`, {
+      // 2. 正確密鑰 -> 過期菜單被關閉，未過期菜單不受影響，且沒有提醒到期
+      const res = await fetch(`${BASE_URL}/api/cron/menu-maintenance`, {
         headers: { Authorization: `Bearer ${CRON_SECRET}` },
       });
       assert(res.status === 200, `正確密鑰應回 200，實際：${res.status}`);
       const body = await res.json();
       assert(body.closedCount >= 1, `應至少關閉 1 張過期菜單，實際 closedCount：${body.closedCount}`);
-      console.log("[e2e:cron-close-menus] ✅ 排程端點成功執行並回報關閉數量");
+      assert(
+        body.remindersSentCount === 0,
+        `這兩張測試菜單都沒設定提醒，remindersSentCount 應為 0，實際：${body.remindersSentCount}`
+      );
+      console.log("[e2e:cron-menu-maintenance] ✅ 排程端點成功執行並回報關閉/提醒數量");
 
       await page.goto(`${BASE_URL}/admin/menus/${expiredMenuId}`, { waitUntil: "networkidle0" });
       let bodyText = await page.evaluate(() => document.body.innerText);
       assert(bodyText.includes("已結單"), `過期菜單應顯示已結單，實際：${bodyText}`);
-      console.log("[e2e:cron-close-menus] ✅ 過期菜單狀態正確變更為已結單");
+      console.log("[e2e:cron-menu-maintenance] ✅ 過期菜單狀態正確變更為已結單");
 
       await page.goto(`${BASE_URL}/admin/menus/${activeMenuId}`, { waitUntil: "networkidle0" });
       bodyText = await page.evaluate(() => document.body.innerText);
       assert(bodyText.includes("收單中"), `未過期菜單應仍是收單中，實際：${bodyText}`);
-      console.log("[e2e:cron-close-menus] ✅ 未過期菜單不受影響，仍為收單中");
+      console.log("[e2e:cron-menu-maintenance] ✅ 未過期菜單不受影響，仍為收單中");
     } finally {
       await browser.close();
     }
   } catch (err) {
-    console.error("[e2e:cron-close-menus] ❌ 測試失敗：", err.message);
+    console.error("[e2e:cron-menu-maintenance] ❌ 測試失敗：", err.message);
     exitCode = 1;
   } finally {
     killProcessTree(server);

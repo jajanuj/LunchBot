@@ -29,6 +29,14 @@ export default async function MenuDetailPage({
       <p className="text-sm text-gray-600 mb-4">
         狀態：{STATUS_LABEL[menu.status] ?? menu.status}　|　截止時間：
         {new Date(menu.cutoffTime).toLocaleString("zh-TW")}
+        {menu.reminderMinutesBefore && (
+          <>
+            　|　提醒推播：截止前 {menu.reminderMinutesBefore} 分鐘
+            {menu.reminderSentAt
+              ? `（已於 ${new Date(menu.reminderSentAt).toLocaleString("zh-TW")} 發送）`
+              : "（尚未發送）"}
+          </>
+        )}
       </p>
 
       <table className="w-full border-collapse text-left mb-6">
