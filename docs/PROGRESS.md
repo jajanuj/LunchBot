@@ -35,6 +35,61 @@
 
 ---
 
+## 外部服務串接：目前缺什麼、怎麼申請
+
+### 目前缺少的串接資料一覽
+
+| 服務 | 需要的項目 | 用途 | 目前狀態 | 對應環境變數（見 `.env.local.example`） |
+|---|---|---|---|---|
+| Supabase | Project URL / anon key / service_role key | 正式資料庫（schema 已寫好待套用） | 尚未建立專案 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` |
+| LINE Developers - Messaging API | Channel Access Token / Channel Secret | 建立 LINE Bot、推送 Flex Message、驗證 Webhook 簽章 | 尚未申請 | `LINE_CHANNEL_ACCESS_TOKEN` / `LINE_CHANNEL_SECRET` |
+| LINE Developers - LIFF | LIFF ID | 員工點餐頁面（LIFF App） | 尚未申請 | `LINE_LIFF_ID` |
+| LINE 群組 | 群組 ID | 推播目標群組 | 尚未取得（要先把 Bot 加入群組才能取得，見下方步驟 12） | `LINE_GROUP_ID` |
+| Google Gemini | API Key | 菜單圖片 AI 辨識 | 尚未申請 | `GEMINI_API_KEY` |
+
+拿到金鑰後，請依 `.env.local.example` 把對應的環境變數加進你自己電腦的 `.env.local`（此檔已被 `.gitignore` 排除、不會進版控）。**金鑰不需要貼給我**，你自己填好存檔即可，下次接手開發時會自動讀到。
+
+### LINE Developers 申請步驟
+
+#### 一、建立 Provider 與 Messaging API Channel
+1. 前往 [developers.line.biz/console](https://developers.line.biz/console/)，用 LINE 帳號登入。
+2. 若還沒有 Provider，先建立一個（建議用公司名稱，例如「OO股份有限公司」）；Provider 可理解成「公司」這層，底下可以放多個 Channel。
+3. 在該 Provider 下點「Create a new channel」，選擇 **Messaging API**。
+4. 填寫 Channel 名稱（如：午餐訂購機器人）、說明、大頭貼、所屬產業、Email 等資料，建立完成。
+
+#### 二、取得 Channel Secret 與 Channel Access Token
+5. 進入該 Channel，切到「**Basic settings**」分頁，可看到 `Channel secret` → 對應 `LINE_CHANNEL_SECRET`。
+6. 切到「**Messaging API**」分頁，找到「Channel access token (long-lived)」，點「Issue」簽發 → 對應 `LINE_CHANNEL_ACCESS_TOKEN`。
+
+#### 三、設定 Webhook
+7. 同一頁面的「Webhook settings」填入 Webhook URL（格式：`https://你的網域/api/line/webhook`）。本機開發階段還沒有對外網址，可先跳過，等部署到 Vercel（或用 `ngrok` 建立臨時公開網址）後再回來設定。
+8. 打開「Use webhook」開關。
+9. 建議把「Auto-reply messages」「Greeting messages」關閉，避免 LINE 官方預設訊息干擾我們自己的 Bot 邏輯。
+
+#### 四、把 Bot 加入內部群組，取得群組 ID
+10. 用手機 LINE 掃描 Channel 頁面的 QR Code，把 Bot 加為好友。
+11. 把 Bot 邀請加入公司內部要收點餐通知的 LINE 群組。
+12. 群組 ID 沒有地方能直接「看到」，要透過程式取得：Bot 加入群組後，群組裡有任何訊息事件，Webhook 收到的內容裡 `source.groupId` 就是群組 ID。等階段二把 Webhook 接好後，我會先加一行記錄把這個值印出來，你看 log 把它存進 `.env.local` 即可，**現在不用急著處理這一步**。
+
+#### 五、建立 LIFF App
+13. 在同一個 Channel 裡切到「**LIFF**」分頁，點「Add」新增一個 LIFF App。
+14. 設定：LIFF app name（如「員工點餐」）／Size 建議選 `Full`／Endpoint URL 先填暫定網址（如 `https://your-domain.vercel.app/liff/order`，之後部署網址確定再回來改）／Scope 勾選 `profile`（取得員工的 LINE userId / 顯示名稱）。
+15. 建立後會拿到一串 `LIFF ID`（格式類似 `1234567890-AbCdEfGh`）→ 對應 `LINE_LIFF_ID`。
+
+> 💡 LINE Messaging API 有免費額度（每月可推送訊息數有上限），公司內部用量通常在免費額度內；人數變多時再留意 LINE 官方計費頁面即可。
+
+### Google Gemini API Key 申請步驟
+
+最簡單的方式是用 **Google AI Studio**（不需要先架設 GCP 專案）：
+1. 前往 [aistudio.google.com/apikey](https://aistudio.google.com/apikey)，用 Google 帳號登入。
+2. 點「Create API key」。
+3. 第一次使用會請你選一個 Google Cloud 專案來掛這個 Key（沒有的話會自動幫你建一個新的）。
+4. 建立完成後會顯示一串 API Key → 對應 `GEMINI_API_KEY`。**只會完整顯示一次，請先複製存好**（之後可回頁面查看或重新產生，但看不到原始字串本體）。
+
+> 如果之後用量變大、需要更嚴謹的權限管控（限制只能呼叫特定 API、限制 IP 來源），可改到 [Google Cloud Console](https://console.cloud.google.com/) 的「API 和服務 > 憑證」頁面建立 API Key，並啟用「Generative Language API」，同時加上使用限制。建議先用 AI Studio 的免費額度測試功能沒問題後，再評估是否需要綁信用卡開計費。
+
+---
+
 ## 技術選型確認紀錄
 
 | 項目 | 決定 | 確認時間 |

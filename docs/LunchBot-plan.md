@@ -263,13 +263,15 @@
 
 ### 6. 開發項目與工作分解結構 (WBS)
 
-#### 階段一：核心資料庫與點餐後台 (MVP)
-- [ ] 建立 Supabase 專案，依第 4 節建立資料表、Foreign Key 約束與 RLS 政策
-- [ ] 建立 `employees` 員工名冊匯入機制（後台批次匯入或手動新增）
-- [ ] 開發 Next.js 後台：店家/菜單 CRUD（手動輸入模式）
-- [ ] 開發歷史樣板（`store_templates` / `template_items`）載入與套用功能
+> **即時開發進度請見 [docs/PROGRESS.md](PROGRESS.md)**。下列勾選代表「功能本身已開發完成」；部分項目目前以伺服器記憶體 mock 資料層頂著（尚未串接真正的 Supabase），待外部服務（Supabase / LINE / Gemini）帳號到位後才會是正式可上線狀態，detail 見 PROGRESS.md。
 
-#### 階段二：LINE Bot 與 LIFF 點餐流程
+#### 階段一：核心資料庫與點餐後台 (MVP) — ✅ 已全部完成（2026-06-16）
+- [x] 撰寫 Supabase 資料庫 schema migration 檔案，依第 4 節建立 9 張資料表、Foreign Key 約束與 RLS 政策（`supabase/migrations/`）—— *Supabase 專案尚未建立，待建立後套用驗證*
+- [x] 建立 `employees` 員工名冊匯入機制（後台批次匯入或手動新增）—— `/admin/employees`
+- [x] 開發 Next.js 後台：店家/菜單 CRUD（手動輸入模式）—— `/admin/menus`
+- [x] 開發歷史樣板（`store_templates` / `template_items`）載入與套用功能 —— 與菜單 CRUD 一併完成
+
+#### 階段二：LINE Bot 與 LIFF 點餐流程 — ⏳ 待處理（需先申請 LINE Developers 帳號，見下方第 6.1 節）
 - [ ] 申請並設定 LINE Messaging API + LIFF App，並以環境變數 `LINE_GROUP_ID` 設定推播目標群組（MVP 僅服務單一群組）
 - [ ] 實作 Webhook 接收與 `X-Line-Signature` 簽章驗證
 - [ ] 實作 Flex Message 菜單推播（同日多場次以 Carousel 多頁卡片合併呈現於同一則訊息）
@@ -278,14 +280,20 @@
 - [ ] 實作截止前提醒推播（依 `reminder_minutes_before` / `reminder_sent_at` 設定，到時間自動發送一次提醒訊息）
 - [ ] 實作助理後台「代客新增/修改訂單」功能（不受收單狀態限制，寫入時標記 `orders.source = 'assisted'`）
 
-#### 階段三：AI 視覺解析菜單匯入
+#### 階段三：AI 視覺解析菜單匯入 — ⏳ 待處理（需先申請 Gemini API Key，見下方第 6.1 節）
 - [ ] 整合 Gemini API，實作圖片上傳（Supabase Storage）與 OCR 解析 API Route
 - [ ] 開發前端校對介面（預覽表格、批次寫入 `menu_items`，並將原始辨識結果存入 `menu_ai_imports`）
 - [ ] 實作解析失敗 / 低信心度之容錯與重試流程
 
-#### 階段四：結算彙整與薪資扣款
+#### 階段四：結算彙整與薪資扣款 — ⏳ 待處理
 - [ ] 實作收單後「店家叫貨清單」與「個人對帳清單」彙整與推播 / 匯出
 - [ ] 實作月結薪資扣款報表產生（寫入 `payroll_deductions`）與 CSV 匯出
+
+#### 6.1 目前卡關的外部帳號申請
+階段二、三開工前，需要老闆先完成以下外部帳號申請（無法用 mock 資料模擬，因 LIFF 本質要在真實 LINE App / 真實 LIFF ID 下才能驗證）。**詳細逐步申請教學已整理在 [docs/PROGRESS.md](PROGRESS.md) 的「外部服務串接：目前缺什麼、怎麼申請」一節**，這裡只列需要拿到的項目：
+- LINE Developers：`Channel Access Token`、`Channel Secret`、`LIFF ID`、`LINE_GROUP_ID`
+- Google：`Gemini API Key`
+- Supabase：`Project URL`、`anon key`、`service_role key`（schema 已寫好，建立專案後即可套用）
 
 ---
 
@@ -319,6 +327,7 @@
 
 | 版本號 | 修訂日期 | 修訂人員 | 變更類型 | 變更描述與主要修改內容 |
 | :--- | :--- | :--- | :--- | :--- |
+| **v1.4.0** | 2026-06-16 | James | 開發進度更新 | 1. 第 6 節 WBS 標記階段一（核心資料庫與點餐後台）全部完成，並加上即時進度指向 `docs/PROGRESS.md` 的提示。<br>2. 新增第 6.1 節「目前卡關的外部帳號申請」，列出階段二、三開工前需要的 LINE Developers / Gemini 帳號與金鑰項目，並指向 PROGRESS.md 的逐步申請教學。 |
 | **v1.3.0** | 2026-06-16 | James | 業務決策確認與設計細化 | 1. 確認同日多場次菜單採「Carousel 多頁卡片」合併呈現，並提供 Flex Message 範例。<br>2. 員工修改/取消訂單改為不通知任何人。<br>3. 確認薪資扣款僅以 CSV 匯出，不對接人資/薪資系統 API。<br>4. 移除 `line_groups` 資料表與 `menus.target_group_id`，改用環境變數設定單一群組。<br>5. 新增 `menu_ai_imports` 資料表，永久保留 Gemini 原始辨識結果供人工比對。<br>6. 新增 `menus.reminder_minutes_before` / `reminder_sent_at`，支援截止前提醒推播。<br>7. 新增 `orders.source`（self/assisted），支援助理後台代客新增/修改訂單（不受收單狀態限制）。<br>8. 第 8 節由「待確認事項」轉為「設計決策紀錄」，記錄上述已確認決策。 |
 | **v1.2.0** | 2026-06-16 | James | 架構審查補強 | 1. 修正 `menus.menu_date` 唯一約束過嚴問題，改為 (menu_date, store_name) 複合約束，支援同日多場次（午餐/下午茶）並行收單。<br>2. 新增 `store_templates` / `template_items` 資料表，補齊第 3 節歷史樣板功能對應的資料庫設計。<br>3. 新增 `line_groups` 資料表，預留多群組廣播擴充彈性。<br>4. 新增 `orders.status`、`payroll_deductions.status` 欄位與 (menu_id, employee_id) 唯一約束，支援截止前修改/取消訂單並避免重複下單與重複扣款。<br>5. 新增 RLS 政策原則、LINE Webhook 簽章驗證、身分綁定防呆、金鑰管理與圖片儲存權限等安全性規範。<br>6. 補完第 6 節 WBS 實際工作項目（原文件為空白佔位）。<br>7. 新增流程三（收單彙整通知）、流程四（月結薪資扣款）流程圖。<br>8. 新增「待確認事項與已知風險」章節，列出需業務面決策之未決問題。 |
 | **v1.1.0** | 2026-06-16 | James | 架構擴充 | 1. 版本紀錄移至文件末端。<br>2. 新增外部 API 申請清單。<br>3. 規劃菜單圖片 AI 自動辨識功能 (整合 Gemini API)。 |
