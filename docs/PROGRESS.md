@@ -52,10 +52,17 @@
 ### LINE Developers 申請步驟
 
 #### 一、建立 Provider 與 Messaging API Channel
+> ⚠️ **2026 更新：LINE 已改流程**，不能再直接在 Developers Console 建立 Messaging API channel，必須先建立 LINE 官方帳號（LINE Official Account），建好後才會自動產生對應的 Messaging API channel。以下步驟已更新為目前的實際流程。
+
 1. 前往 [developers.line.biz/console](https://developers.line.biz/console/)，用 LINE 帳號登入。
 2. 若還沒有 Provider，先建立一個（建議用公司名稱，例如「OO股份有限公司」）；Provider 可理解成「公司」這層，底下可以放多個 Channel。
-3. 在該 Provider 下點「Create a new channel」，選擇 **Messaging API**。
-4. 填寫 Channel 名稱（如：午餐訂購機器人）、說明、大頭貼、所屬產業、Email 等資料，建立完成。
+3. 在該 Provider 下點「Create a new channel」→ 選 **Messaging API** 時，會看到提示「It's no longer possible to create Messaging API channels directly from the LINE Developers Console」，請點頁面上的「**Create a LINE Official Account**」按鈕（會連到外部網站 LINE 官方帳號管理後台，manager.line.biz）。
+4. 在官方帳號管理後台建立新帳號，需要填：
+   - **帳號名稱**：員工在 LINE 上會看到的顯示名稱，例如「公司午餐訂購」
+   - 國家/地區、產業類別，可能需要手機號碼驗證
+   - **方案（Plan）**：建議先選 **免費方案**，公司內部用量通常在免費額度內，超過再考慮升級
+5. 建立完成後，官方帳號通常會自動啟用 Messaging API；若沒有，到後台「設定 > Messaging API」頁面手動啟用，並選擇歸屬到上面建立的 Provider。
+6. 回到 LINE Developers Console 重新整理，這個官方帳號對應的 Channel 就會出現在該 Provider 底下的清單裡，點進去即為後續步驟要用的 Channel。
 
 #### 二、取得 Channel Secret 與 Channel Access Token
 5. 進入該 Channel，切到「**Basic settings**」分頁，可看到 `Channel secret` → 對應 `LINE_CHANNEL_SECRET`。
