@@ -21,13 +21,15 @@
     - 用 ngrok 實測 Webhook 全流程通過：LINE 後台 Verify 成功、群組訊息事件正確被接收與記錄
     - Flex Message 菜單推播：`/admin/menus/[id]` 新增「推播至 LINE 群組」按鈕，同一天收單中的菜單合併成一則 Carousel 訊息推播，已實際發送到測試群組驗證成功（`npm run verify:line-push` 可重複手動驗證，故意不放進自動化測試避免洗群組版面）
     - LIFF 點餐頁面：`/liff/order`，身分綁定（從未綁定名單選姓名，防冒名）+ 點餐（數量/備註）+ upsert 修改 + 取消/重新點餐 + 截止後鎖定唯讀；因 `liff.getProfile()` 需要真實 LINE App 環境，加了僅非正式環境出現的「開發測試模式」身分模擬入口
-  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 31 個情境）皆通過
+    - 截止時間自動關閉菜單：`/api/cron/close-expired-menus`（CRON_SECRET 驗證），`vercel.json` 設定 Vercel Cron 每 10 分鐘呼叫一次
+  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 35 個情境）皆通過
 
 - 🔄 **進行中**
   - Supabase 資料庫 schema — `supabase/migrations/0001_init_schema.sql`、`0002_rls_policies.sql` 已依計劃文件第 4 節寫好（9 張表 + RLS），但因 Supabase 專案尚未建立、本機也沒有 psql/docker，**無法實際套用驗證**。待老闆建立 Supabase 專案、提供 Project URL / anon key / service_role key 後即可套用並驗證
 
 - ⏳ **待處理**
-  - WBS 階段二剩餘項目：截止時間自動關閉菜單、截止前提醒推播、助理代客新增/修改訂單
+  - WBS 階段二剩餘項目：截止前提醒推播、助理代客新增/修改訂單
+  - 部署到 Vercel 時要確認方案的 Cron 執行頻率限制（Hobby 方案曾經一度限制為每天最多 1 次），若不符合「每 10 分鐘」的設計需求，要評估改成每天固定時段或升級方案
   - 安全性待強化：LIFF 身分目前信任前端傳來的 lineUserId，沒有用 `liff.getIDToken()` 做伺服器端 JWT 驗證（內部 MVP 風險可接受，未來可加強，見 `src/app/liff/order/actions.ts` 註解）
   - WBS 階段三（Gemini AI 菜單辨識）：需要老闆先申請 Google Gemini API Key
   - WBS 階段四（結算彙整與薪資扣款）
@@ -39,6 +41,7 @@
   - Next.js 16 把 `middleware.ts` 改名為 `proxy.ts`（功能相同），開發前先查了 `node_modules/next/dist/docs` 才確認，避免寫了舊版檔名導致保護機制悄悄失效。
   - E2E 測試一開始用 `child.kill()` 關閉 `next dev`，在 Windows 上因為 `shell:true` 啟動的是 cmd.exe → npx → node 的程序樹，只會砍掉最外層 cmd.exe，底層 next dev server 變成孤兒程序、一路佔用 port 並持續吃記憶體（曾累積到 4 個殘留 process）。已改用 `taskkill /PID <pid> /T /F` 砍整個程序樹並清掉殘留 process，修正後 `e2e/utils.mjs` 統一處理。
   - 員工名冊 E2E 測試一開始用籤略的 `button[type="submit"]` 選擇器，在同時有「登出」按鈕與表單按鈕的頁面上點錯按鈕；後續測試斷言也誤判過殘留的錯誤訊息文字。兩個都已修正（詳見 commit b4908a3），**之後新增頁面上有多個 submit 按鈕時，務必加明確 id，不要用籤略選擇器**。
+  - **重大架構排錯**：開發「截止自動關閉」功能時發現，Next.js 的 Route Handler（`/api/**/route.ts`）跟 Server Action 在 Turbopack dev 模式下可能各自有獨立的模組執行環境——後台 Server Action 建立的菜單，API Route 端完全看不到（單純的 `module-level const arr = []` 假資料庫，兩邊各有一份）。改用 `globalThis` 存資料解決，並對 `employees` / `menus` / `orders` / `storeTemplates` 四個資料層統一套用這個修正，避免日後其他跨 Route Handler 的功能（如 Webhook、排程）再踩到同一個坑。**之後新寫 mock 資料層一律用 `globalThis.__lunchbot_xxx__ ??= [...]` 的寫法，不要用單純的 module-level 變數。**
   - 發現這個專案同一時間**只能跑一個 `next dev`**，即使指定不同 port，第二個實例也會啟動失敗（連線被拒）——應該是 Turbopack 的 `.next` build 目錄鎖住了同一專案資料夾。**之後若老闆自己開著 `npm run dev`，要先請他關掉才能跑會自己啟動 dev server 的腳本（`npm run test:e2e:*`、`npm run verify:line-push`）**，`e2e/manual-verify-line-push.mjs` 已加了「偵測 3000 port 有沒有人在跑，有就借用、沒有才自己啟動」的邏輯。
   - 菜單表單的 `date` / `datetime-local` 輸入框用 Puppeteer `page.type()` 不可靠（這類輸入框是多段式編輯，不是單純文字輸入）。改用 `page.evaluate()` 直接設定 DOM `value` 並補發 `input`/`change` 事件，才能讓 React 的 controlled/uncontrolled 欄位都正確收到值。
   - LINE Developers 申請過程中，Channel Access Token 與 Channel Secret 一度完整明碼出現在截圖裡，兩組都立刻請老闆點「Issue」重新簽發、作廢舊的，新的直接存進老闆自己的 `.env.local`，沒有貼進對話紀錄。**之後若需要看 LINE 後台畫面，金鑰類欄位（Channel Secret / Access Token）務必先避開或遮住再截圖**。
