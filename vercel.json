@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/close-expired-menus",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}

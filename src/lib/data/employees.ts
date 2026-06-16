@@ -6,6 +6,9 @@
 // Supabase 的原因，本機開發階段先不處理）。之後接上 Supabase 時，把這幾個
 // 函式內部換成查詢 `employees` 資料表（見 docs/LunchBot-plan.md 4.1）即可，
 // 呼叫端（Server Actions / 頁面）不需要改動。
+//
+// ⚠️ 用 globalThis 存資料，原因見 src/lib/data/menus.ts 開頭註解
+// （Route Handler 跟 Server Action 在 dev 模式下可能各自有獨立模組實例）。
 import { randomUUID } from "node:crypto";
 
 export type Employee = {
@@ -15,11 +18,15 @@ export type Employee = {
   boundAt: string | null;
 };
 
-const employees: Employee[] = [
+declare global {
+  var __lunchbot_employees__: Employee[] | undefined;
+}
+
+const employees: Employee[] = (globalThis.__lunchbot_employees__ ??= [
   { id: randomUUID(), employeeName: "王小明", lineUserId: "U_demo_1", boundAt: new Date().toISOString() },
   { id: randomUUID(), employeeName: "陳小華", lineUserId: null, boundAt: null },
   { id: randomUUID(), employeeName: "林小芳", lineUserId: null, boundAt: null },
-];
+]);
 
 export async function listEmployees(): Promise<Employee[]> {
   return [...employees].sort((a, b) => a.employeeName.localeCompare(b.employeeName));

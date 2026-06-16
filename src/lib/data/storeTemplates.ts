@@ -1,6 +1,9 @@
 // 店家歷史樣板的「資料存取」抽象層（對應 docs/LunchBot-plan.md 4.2、4.3）。
 // 目前狀態：同 employees.ts，先用伺服器記憶體陣列頂著，之後接 Supabase 時
 // 把函式內部換成查詢 store_templates / template_items 即可。
+//
+// ⚠️ 用 globalThis 存資料，原因見 src/lib/data/menus.ts 開頭註解
+// （Route Handler 跟 Server Action 在 dev 模式下可能各自有獨立模組實例）。
 import { randomUUID } from "node:crypto";
 
 export type TemplateItem = {
@@ -18,8 +21,12 @@ export type StoreTemplate = {
 
 export type TemplateItemInput = { itemName: string; price: number };
 
+declare global {
+  var __lunchbot_store_templates__: StoreTemplate[] | undefined;
+}
+
 // 種子資料：示範一個常用店家樣板，方便登入後就能體驗「套用樣板」流程。
-const templates: StoreTemplate[] = [
+const templates: StoreTemplate[] = (globalThis.__lunchbot_store_templates__ ??= [
   {
     id: randomUUID(),
     storeName: "阿明便當",
@@ -30,7 +37,7 @@ const templates: StoreTemplate[] = [
       { id: randomUUID(), itemName: "滷肉飯", price: 70 },
     ],
   },
-];
+]);
 
 export async function listTemplates(): Promise<StoreTemplate[]> {
   return [...templates].sort((a, b) => a.storeName.localeCompare(b.storeName));

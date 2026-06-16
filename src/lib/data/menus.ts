@@ -1,6 +1,13 @@
 // 菜單的「資料存取」抽象層（對應 docs/LunchBot-plan.md 4.4、4.5）。
 // 目前狀態：先用伺服器記憶體陣列頂著，之後接 Supabase 時把函式內部換成
 // 查詢 menus / menu_items 即可，呼叫端（Server Actions / 頁面）不需要改動。
+//
+// ⚠️ 用 globalThis 存資料，不要改回單純的 module-level 變數：
+// 實測發現 Next.js 的 Route Handler（/api/**/route.ts）跟 Server Action
+// 在 Turbopack dev 模式下可能被打包成不同的模組執行環境，各自 import 到
+//「不同份」的同一個檔案，單純的 `const menus = []` 會各自獨立、互不相通
+// （後台建立的菜單，API Route 端完全看不到）。globalThis 是整個 process
+// 共用的，才能確保兩邊讀到同一份假資料。
 import { randomUUID } from "node:crypto";
 
 export type MenuItemRecord = {
@@ -31,7 +38,11 @@ export type CreateMenuInput = {
   items: MenuItemInput[];
 };
 
-const menus: Menu[] = [];
+declare global {
+  var __lunchbot_menus__: Menu[] | undefined;
+}
+
+const menus: Menu[] = (globalThis.__lunchbot_menus__ ??= []);
 
 export async function listMenus(): Promise<Menu[]> {
   return [...menus].sort((a, b) => (a.menuDate < b.menuDate ? 1 : -1));
@@ -95,6 +106,23 @@ export async function closeMenu(id: string): Promise<void> {
   if (menu) {
     menu.status = "closed";
   }
+}
+
+export type ClosedMenuSummary = { id: string; storeName: string; menuDate: string };
+
+/**
+ * 把所有「收單中」且已經過截止時間的菜單自動關閉。
+ * 給排程（Vercel Cron / 定時觸發）呼叫，對應計劃文件流程三。
+ */
+export async function closeExpiredMenus(now: Date = new Date()): Promise<ClosedMenuSummary[]> {
+  const closed: ClosedMenuSummary[] = [];
+  for (const menu of menus) {
+    if (menu.status === "open" && new Date(menu.cutoffTime).getTime() <= now.getTime()) {
+      menu.status = "closed";
+      closed.push({ id: menu.id, storeName: menu.storeName, menuDate: menu.menuDate });
+    }
+  }
+  return closed;
 }
 
 export async function deleteMenu(id: string): Promise<void> {
