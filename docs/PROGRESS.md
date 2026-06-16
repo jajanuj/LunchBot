@@ -42,8 +42,8 @@
 | 服務 | 需要的項目 | 用途 | 目前狀態 | 對應環境變數（見 `.env.local.example`） |
 |---|---|---|---|---|
 | Supabase | Project URL / anon key / service_role key | 正式資料庫（schema 已寫好待套用） | 尚未建立專案 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` |
-| LINE Developers - Messaging API | Channel Access Token / Channel Secret | 建立 LINE Bot、推送 Flex Message、驗證 Webhook 簽章 | 尚未申請 | `LINE_CHANNEL_ACCESS_TOKEN` / `LINE_CHANNEL_SECRET` |
-| LINE Developers - LIFF | LIFF ID | 員工點餐頁面（LIFF App） | 尚未申請 | `NEXT_PUBLIC_LINE_LIFF_ID` |
+| LINE Developers - Messaging API（StockBot channel） | Channel Access Token / Channel Secret | 建立 LINE Bot、推送 Flex Message、驗證 Webhook 簽章 | 尚未取得 | `LINE_CHANNEL_ACCESS_TOKEN` / `LINE_CHANNEL_SECRET` |
+| LINE Developers - LIFF（LunchBot 點餐 channel） | LIFF ID | 員工點餐頁面（LIFF App） | ✅ **已取得**：`2010418986-djEPOUcf` | `NEXT_PUBLIC_LINE_LIFF_ID` |
 | LINE 群組 | 群組 ID | 推播目標群組 | 尚未取得（要先把 Bot 加入群組才能取得，見下方步驟 12） | `LINE_GROUP_ID` |
 | Google Gemini | API Key | 菜單圖片 AI 辨識 | 尚未申請 | `GEMINI_API_KEY` |
 
@@ -100,8 +100,12 @@
 19. **Add friend option**：在這個 channel 的「Basic settings」分頁，找到「Add friend option → Linked LINE Official Account」，點「Edit」連結到 StockBot，這樣員工開啟 LIFF 時會順便引導加 StockBot 好友。
 20. 「LINE Login」分頁裡的「Callback URL」可以先留空——我們用的是 LIFF 流程，不會走傳統 LINE Login 的 OAuth callback 機制。
 
-#### 六、在 LINE Login Channel 底下建立 LIFF App
+#### 六、在 LINE Login Channel 底下建立 LIFF App — ✅ 已完成（2026-06-16）
 LIFF（LINE Front-end Framework）讓我們的網頁可以在 LINE App 內嵌開啟，使用者點擊「我要點餐」後不需要額外登入，網頁就能透過 LIFF SDK 拿到目前使用者的 LINE 個人資訊（userId、displayName），這在本系統裡就是員工點餐頁面的入口。
+
+> ✅ **本專案實際狀況：** LIFF App「**員工點餐頁**」已建立完成，Size: Full，Scope: profile，Add friend option: On (Normal)，Endpoint URL 暫填 `https://your-domain.vercel.app/liff/order`（待正式網域確定後要回來改）。
+> **LIFF ID：`2010418986-djEPOUcf`** → 已存進 `.env.local` 與 `.env.local.example` 的 `NEXT_PUBLIC_LINE_LIFF_ID`（LIFF ID 不是敏感資訊，可放實際值）。
+> LIFF URL：`https://liff.line.me/2010418986-djEPOUcf`
 
 21. 進入剛建立的 LINE Login channel，切到「**LIFF**」分頁，點「Add」新增一個 LIFF App。
 22. 填寫表單：
