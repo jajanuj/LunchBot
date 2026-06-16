@@ -45,6 +45,11 @@ export async function getOrder(menuId: string, employeeId: string): Promise<Orde
   return orders.find((o) => o.menuId === menuId && o.employeeId === employeeId);
 }
 
+/** 給後台「員工訂單管理」用：列出某張菜單目前所有人的訂單（含已取消的）。 */
+export async function listOrdersByMenu(menuId: string): Promise<Order[]> {
+  return orders.filter((o) => o.menuId === menuId);
+}
+
 export type UpsertOrderResult = { ok: true; order: Order } | { ok: false; error: string };
 
 /**

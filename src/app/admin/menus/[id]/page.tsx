@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
 import { getMenu } from "@/lib/data/menus";
+import { listEmployees } from "@/lib/data/employees";
+import { listOrdersByMenu } from "@/lib/data/orders";
 import { closeMenuAction, deleteMenuAction } from "../actions";
 import PushNotificationButton from "./push-notification-button";
+import AssistedOrderSection from "./assisted-order-section";
 
 const STATUS_LABEL: Record<string, string> = {
   open: "收單中",
@@ -20,6 +23,8 @@ export default async function MenuDetailPage({
   if (!menu) {
     notFound();
   }
+
+  const [employees, orders] = await Promise.all([listEmployees(), listOrdersByMenu(id)]);
 
   return (
     <div>
@@ -61,6 +66,19 @@ export default async function MenuDetailPage({
           <PushNotificationButton menuId={menu.id} />
         </div>
       )}
+
+      <AssistedOrderSection
+        menuId={menu.id}
+        employees={employees.map((e) => ({ id: e.id, employeeName: e.employeeName }))}
+        menuItems={menu.items}
+        existingOrders={orders.map((o) => ({
+          employeeId: o.employeeId,
+          status: o.status,
+          source: o.source,
+          totalAmount: o.totalAmount,
+          items: o.items.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
+        }))}
+      />
 
       <div className="flex gap-4">
         {menu.status === "open" && (

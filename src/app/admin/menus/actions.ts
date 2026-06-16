@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/auth/dal";
 import { createMenu, closeMenu, deleteMenu, getMenu, listOpenMenusByDate } from "@/lib/data/menus";
 import { upsertTemplate } from "@/lib/data/storeTemplates";
+import { upsertOrder, cancelOrder } from "@/lib/data/orders";
 import { buildMenuCarouselMessage } from "@/lib/line/flexMessage";
 import { getLineMessagingClient } from "@/lib/line/client";
 
@@ -107,6 +108,51 @@ export async function pushMenuNotificationAction(
   }
 
   return { success: true, pushedCount: sameDayOpenMenus.length };
+}
+
+export type AssistedOrderActionState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * 助理在後台代客新增/修改訂單（臨時插單、事後修正用）。
+ * 不受 menus.status 是否為 open 限制，寫入時標記 orders.source = 'assisted'。
+ */
+export async function assistedUpsertOrderAction(
+  _prevState: AssistedOrderActionState,
+  formData: FormData
+): Promise<AssistedOrderActionState> {
+  await verifySession();
+
+  const menuId = String(formData.get("menuId") ?? "");
+  const employeeId = String(formData.get("employeeId") ?? "");
+  if (!employeeId) {
+    return { error: "請選擇要代下單的員工" };
+  }
+
+  const menuItemIds = formData.getAll("menuItemId").map(String);
+  const quantities = formData.getAll("quantity").map(String);
+  const items = menuItemIds.map((menuItemId, i) => ({
+    menuItemId,
+    quantity: Number(quantities[i] ?? 0),
+  }));
+
+  const result = await upsertOrder(menuId, employeeId, items, "assisted");
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidatePath(`/admin/menus/${menuId}`);
+  return { success: true };
+}
+
+export async function assistedCancelOrderAction(formData: FormData): Promise<void> {
+  await verifySession();
+
+  const menuId = String(formData.get("menuId") ?? "");
+  const employeeId = String(formData.get("employeeId") ?? "");
+  if (menuId && employeeId) {
+    await cancelOrder(menuId, employeeId);
+  }
+  revalidatePath(`/admin/menus/${menuId}`);
 }
 
 export async function deleteMenuAction(formData: FormData): Promise<void> {
