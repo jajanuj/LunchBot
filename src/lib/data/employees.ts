@@ -76,6 +76,41 @@ export async function createEmployeesBulk(names: string[]): Promise<BulkCreateRe
   return { created, skipped };
 }
 
+/** 尚未綁定 LINE 身分的員工名單，LIFF 頁面只能從這裡選，不可自由輸入姓名（防冒名）。 */
+export async function listUnboundEmployees(): Promise<Employee[]> {
+  return employees.filter((e) => e.lineUserId === null);
+}
+
+export async function findEmployeeByLineUserId(lineUserId: string): Promise<Employee | undefined> {
+  return employees.find((e) => e.lineUserId === lineUserId);
+}
+
+export type BindEmployeeResult = { ok: true; employee: Employee } | { ok: false; error: string };
+
+/**
+ * 將 LINE 身分綁定到指定員工。一次性動作：已綁定的員工不可再被重新綁定，
+ * 該 lineUserId 也不可重複綁定到別人（雙重防呆）。
+ */
+export async function bindEmployeeToLine(
+  employeeId: string,
+  lineUserId: string
+): Promise<BindEmployeeResult> {
+  const employee = employees.find((e) => e.id === employeeId);
+  if (!employee) {
+    return { ok: false, error: "找不到這位員工" };
+  }
+  if (employee.lineUserId !== null) {
+    return { ok: false, error: "這位員工已經綁定過 LINE 身分了" };
+  }
+  if (employees.some((e) => e.lineUserId === lineUserId)) {
+    return { ok: false, error: "這個 LINE 帳號已經綁定過別的員工了" };
+  }
+
+  employee.lineUserId = lineUserId;
+  employee.boundAt = new Date().toISOString();
+  return { ok: true, employee };
+}
+
 export async function deleteEmployee(id: string): Promise<void> {
   const index = employees.findIndex((e) => e.id === id);
   if (index !== -1) {

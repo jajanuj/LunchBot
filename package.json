@@ -14,7 +14,8 @@
     "test:e2e:menus": "node e2e/menus.test.mjs",
     "test:e2e:line-webhook": "node --env-file=.env.local e2e/line-webhook.test.mjs",
     "test:e2e:line-flex-message": "node --no-warnings e2e/line-flex-message.test.mjs",
-    "test:e2e": "npm run test:e2e:smoke && npm run test:e2e:login && npm run test:e2e:employees && npm run test:e2e:employees-bulk && npm run test:e2e:menus && npm run test:e2e:line-webhook && npm run test:e2e:line-flex-message",
+    "test:e2e:liff-order": "node e2e/liff-order.test.mjs",
+    "test:e2e": "npm run test:e2e:smoke && npm run test:e2e:login && npm run test:e2e:employees && npm run test:e2e:employees-bulk && npm run test:e2e:menus && npm run test:e2e:line-webhook && npm run test:e2e:line-flex-message && npm run test:e2e:liff-order",
     "verify:line-push": "node --env-file=.env.local e2e/manual-verify-line-push.mjs"
   },
   "dependencies": {
