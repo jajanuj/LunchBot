@@ -184,3 +184,11 @@ export async function deleteMenuAction(formData: FormData): Promise<void> {
   revalidatePath("/admin/menus");
   redirect("/admin/menus");
 }
+
+export async function batchDeleteMenusAction(formData: FormData): Promise<void> {
+  await verifySession();
+
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  await Promise.all(ids.map((id) => deleteMenu(id)));
+  revalidatePath("/admin/menus");
+}
