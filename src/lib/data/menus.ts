@@ -63,11 +63,10 @@ function toMenu(row: MenuRow): Menu {
 
 const MENU_SELECT = "id, menu_date, session_name, store_name, cutoff_time, reminder_minutes_before, reminder_sent_at, status, menu_items(id, item_name, price)";
 
-export async function listMenus(): Promise<Menu[]> {
-  const { data, error } = await supabase
-    .from("menus")
-    .select(MENU_SELECT)
-    .order("menu_date", { ascending: false });
+export async function listMenus(since?: string): Promise<Menu[]> {
+  let query = supabase.from("menus").select(MENU_SELECT).order("menu_date", { ascending: false });
+  if (since) query = query.gte("menu_date", since);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data as MenuRow[]).map(toMenu);
 }
