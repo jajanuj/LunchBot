@@ -16,9 +16,11 @@ function isoOffsetMinutes(minutes) {
 async function main() {
   const now = new Date();
 
+  const today = new Date().toISOString().slice(0, 10);
+
   // 1. 截止前 5 分鐘、設定提醒 10 分鐘前 -> 提醒時間點已過 -> 應該到期
   const due = await createMenu({
-    menuDate: "2099-01-01",
+    menuDate: today,
     sessionName: "到期提醒測試",
     storeName: `due_${Date.now()}`,
     cutoffTime: isoOffsetMinutes(5),
@@ -29,7 +31,7 @@ async function main() {
 
   // 2. 截止前 60 分鐘、設定提醒 10 分鐘前 -> 還沒到提醒時間 -> 不應該到期
   const notDue = await createMenu({
-    menuDate: "2099-01-01",
+    menuDate: today,
     sessionName: "未到期提醒測試",
     storeName: `notdue_${Date.now()}`,
     cutoffTime: isoOffsetMinutes(60),
@@ -40,7 +42,7 @@ async function main() {
 
   // 3. 截止前 5 分鐘、沒設定提醒 -> 不應該出現在到期清單
   const noReminder = await createMenu({
-    menuDate: "2099-01-01",
+    menuDate: today,
     sessionName: "沒設定提醒測試",
     storeName: `noreminder_${Date.now()}`,
     cutoffTime: isoOffsetMinutes(5),

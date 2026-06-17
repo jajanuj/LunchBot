@@ -8,7 +8,7 @@
 //   4. 刪除剛新增的員工 -> 從列表消失
 import { spawn } from "node:child_process";
 import puppeteer from "puppeteer";
-import { waitForServerReady, killProcessTree, assert, loginAsMockAdmin } from "./utils.mjs";
+import { waitForServerReady, killProcessTree, assert, loginAsMockAdmin, createAdminEmployee } from "./utils.mjs";
 
 const PORT = 3103;
 const BASE_URL = `http://localhost:${PORT}`;
@@ -28,11 +28,12 @@ async function main() {
       const page = await browser.newPage();
       await loginAsMockAdmin(page, BASE_URL);
 
-      // 1. 進入員工名冊，看到種子資料（只看 table 內容，避免上方錯誤訊息殘留干擾判斷）
+      // 1. 進入員工名冊，確認頁面正常渲染（Supabase 可能是空資料庫，只確認 table 元素存在）
       await page.goto(`${BASE_URL}/admin/employees`, { waitUntil: "networkidle0" });
-      let tableText = await page.$eval("table", (el) => el.innerText);
-      assert(tableText.includes("王小明"), "應看到種子員工「王小明」");
-      console.log("[e2e:employees] ✅ 看到種子員工列表");
+      const tableExists = await page.$("table");
+      assert(tableExists, "員工名冊頁面應有 table 元素");
+      let tableText = "";
+      console.log("[e2e:employees] ✅ 員工名冊頁面正常渲染");
 
       // 2. 新增員工
       await page.type("#employeeName", NEW_NAME);

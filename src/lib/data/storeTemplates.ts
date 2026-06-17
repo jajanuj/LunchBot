@@ -1,10 +1,4 @@
-// 店家歷史樣板的「資料存取」抽象層（對應 docs/LunchBot-plan.md 4.2、4.3）。
-// 目前狀態：同 employees.ts，先用伺服器記憶體陣列頂著，之後接 Supabase 時
-// 把函式內部換成查詢 store_templates / template_items 即可。
-//
-// ⚠️ 用 globalThis 存資料，原因見 src/lib/data/menus.ts 開頭註解
-// （Route Handler 跟 Server Action 在 dev 模式下可能各自有獨立模組實例）。
-import { randomUUID } from "node:crypto";
+import { supabase } from "../supabase";
 
 export type TemplateItem = {
   id: string;
@@ -21,60 +15,91 @@ export type StoreTemplate = {
 
 export type TemplateItemInput = { itemName: string; price: number };
 
-declare global {
-  var __lunchbot_store_templates__: StoreTemplate[] | undefined;
+type TemplateRow = {
+  id: string;
+  store_name: string;
+  last_used_at: string | null;
+  template_items: { id: string; item_name: string; price: number }[];
+};
+
+function toTemplate(row: TemplateRow): StoreTemplate {
+  return {
+    id: row.id,
+    storeName: row.store_name,
+    lastUsedAt: row.last_used_at,
+    items: (row.template_items ?? []).map((i) => ({
+      id: i.id,
+      itemName: i.item_name,
+      price: i.price,
+    })),
+  };
 }
 
-// 種子資料：示範一個常用店家樣板，方便登入後就能體驗「套用樣板」流程。
-const templates: StoreTemplate[] = (globalThis.__lunchbot_store_templates__ ??= [
-  {
-    id: randomUUID(),
-    storeName: "阿明便當",
-    lastUsedAt: null,
-    items: [
-      { id: randomUUID(), itemName: "雞腿飯", price: 90 },
-      { id: randomUUID(), itemName: "排骨飯", price: 85 },
-      { id: randomUUID(), itemName: "滷肉飯", price: 70 },
-    ],
-  },
-]);
-
 export async function listTemplates(): Promise<StoreTemplate[]> {
-  return [...templates].sort((a, b) => a.storeName.localeCompare(b.storeName));
+  const { data, error } = await supabase
+    .from("store_templates")
+    .select("id, store_name, last_used_at, template_items(id, item_name, price)")
+    .order("store_name");
+  if (error) throw new Error(error.message);
+  return (data as TemplateRow[]).map(toTemplate);
 }
 
 export async function getTemplate(id: string): Promise<StoreTemplate | undefined> {
-  return templates.find((t) => t.id === id);
+  const { data, error } = await supabase
+    .from("store_templates")
+    .select("id, store_name, last_used_at, template_items(id, item_name, price)")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? toTemplate(data as TemplateRow) : undefined;
 }
 
-/**
- * 依店家名稱建立或更新樣板（同店家視為更新品項並刷新 lastUsedAt）。
- * 對應計劃文件「系統預設會將建立過的店家與菜單存為歷史樣板」的描述。
- */
 export async function upsertTemplate(
   storeName: string,
   items: TemplateItemInput[]
 ): Promise<StoreTemplate> {
   const trimmedName = storeName.trim();
-  const existing = templates.find((t) => t.storeName === trimmedName);
-  const newItems: TemplateItem[] = items.map((i) => ({
-    id: randomUUID(),
-    itemName: i.itemName,
-    price: i.price,
-  }));
 
-  if (existing) {
-    existing.items = newItems;
-    existing.lastUsedAt = new Date().toISOString();
-    return existing;
-  }
+  // upsert store_templates（衝突時更新 last_used_at）
+  const { data: tmpl, error: tmplErr } = await supabase
+    .from("store_templates")
+    .upsert(
+      { store_name: trimmedName, last_used_at: new Date().toISOString() },
+      { onConflict: "store_name" }
+    )
+    .select("id, store_name, last_used_at")
+    .single();
+  if (tmplErr) throw new Error(tmplErr.message);
 
-  const template: StoreTemplate = {
-    id: randomUUID(),
+  const templateId = (tmpl as { id: string }).id;
+
+  // 刪除舊品項，再重新插入（template_items 有 ON DELETE CASCADE，但這裡只刪品項）
+  const { error: delErr } = await supabase
+    .from("template_items")
+    .delete()
+    .eq("template_id", templateId);
+  if (delErr) throw new Error(delErr.message);
+
+  const { data: newItems, error: insertErr } = await supabase
+    .from("template_items")
+    .insert(
+      items.map((i) => ({
+        template_id: templateId,
+        item_name: i.itemName,
+        price: i.price,
+      }))
+    )
+    .select("id, item_name, price");
+  if (insertErr) throw new Error(insertErr.message);
+
+  return {
+    id: templateId,
     storeName: trimmedName,
-    lastUsedAt: new Date().toISOString(),
-    items: newItems,
+    lastUsedAt: (tmpl as { last_used_at: string }).last_used_at,
+    items: (newItems as { id: string; item_name: string; price: number }[]).map((i) => ({
+      id: i.id,
+      itemName: i.item_name,
+      price: i.price,
+    })),
   };
-  templates.push(template);
-  return template;
 }

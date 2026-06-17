@@ -12,6 +12,8 @@ import { waitForServerReady, killProcessTree, assert, loginAsMockAdmin } from ".
 
 const PORT = 3108;
 const BASE_URL = `http://localhost:${PORT}`;
+const TEMPLATE_STORE = `E2E樣板_${Date.now()}`;  // 9 + 13 = 22 > 20，但這是 store_name（varchar 100），無長度問題
+const MANUAL_STORE = `E2E手動_${Date.now()}`; // 步驟 1 的固定店名改為含時間戳，避免 (date, store_name) unique constraint 衝突
 
 function futureDateString(daysFromNow) {
   const d = new Date();
@@ -47,13 +49,36 @@ async function main() {
       const page = await browser.newPage();
       await loginAsMockAdmin(page, BASE_URL);
 
+      // 0. 先建立「歷史樣板」，供後面步驟 4 套用（Supabase 是空資料庫，無種子樣板）
+      const templateDate = futureDateString(3);
+      await page.goto(`${BASE_URL}/admin/menus/new`, { waitUntil: "networkidle0" });
+      await setInputValue(page, "#menuDate", templateDate);
+      await page.type("#storeName", TEMPLATE_STORE);
+      await setInputValue(page, "#cutoffTime", `${templateDate}T11:30`);
+      await (await page.$('input[name="itemName"]')).type("樣板便當");
+      await (await page.$('input[name="itemPrice"]')).type("75");
+      // 直接設定 checked 屬性（比 page.click 更可靠，避免 label 雙重觸發的問題）
+      await page.evaluate(() => {
+        const cb = document.querySelector('input[name="saveAsTemplate"]');
+        if (cb) cb.checked = true;
+      });
+      const cbChecked = await page.$eval('input[name="saveAsTemplate"]', (el) => el.checked);
+      assert(cbChecked, "saveAsTemplate checkbox 應為勾選狀態");
+      await Promise.all([page.click("#create-menu-submit"), page.waitForNetworkIdle()]);
+      // 確認 step 0 已成功建立樣板（若失敗會停在 /menus/new）
+      if (page.url() !== `${BASE_URL}/admin/menus`) {
+        const errText = await page.$eval("[role='alert']", (el) => el.textContent).catch(() => "(無 alert)");
+        throw new Error(`步驟 0 建立樣板菜單失敗，仍在 ${page.url()}，錯誤訊息：${errText}`);
+      }
+      console.log("[e2e:menus] ✅ 步驟 0 歷史樣板建立成功");
+
       const menuDate1 = futureDateString(1);
 
       // 1. 手動輸入建立菜單
       await page.goto(`${BASE_URL}/admin/menus/new`, { waitUntil: "networkidle0" });
       await setInputValue(page, "#menuDate", menuDate1);
       await page.type("#sessionName", "午餐");
-      await page.type("#storeName", "測試小吃店");
+      await page.type("#storeName", MANUAL_STORE);
       await setInputValue(page, "#cutoffTime", `${menuDate1}T11:30`);
 
       const nameInputs = await page.$$('input[name="itemName"]');
@@ -73,16 +98,16 @@ async function main() {
       assert(page.url() === `${BASE_URL}/admin/menus`, `建立後應回到菜單列表，實際：${page.url()}`);
 
       let tableText = await page.$eval("table", (el) => el.innerText);
-      assert(tableText.includes("測試小吃店"), "列表應看到剛建立的店家");
+      assert(tableText.includes(MANUAL_STORE), "列表應看到剛建立的店家");
       assert(tableText.includes("收單中"), "新菜單狀態應為收單中");
       console.log("[e2e:menus] ✅ 手動輸入建立菜單成功並顯示在列表");
 
       // 2. 進入詳細頁
-      const detailLinkHandle = await page.evaluateHandle(() => {
+      const detailLinkHandle = await page.evaluateHandle((storeName) => {
         const rows = Array.from(document.querySelectorAll("tbody tr"));
-        const row = rows.find((r) => r.textContent.includes("測試小吃店"));
+        const row = rows.find((r) => r.textContent.includes(storeName));
         return row ? row.querySelector("a") : null;
-      });
+      }, MANUAL_STORE);
       const detailLink = detailLinkHandle.asElement();
       assert(detailLink, "應找到查看連結");
       await Promise.all([detailLink.click(), page.waitForNetworkIdle()]);
@@ -100,15 +125,17 @@ async function main() {
       assert(afterCloseText.includes("已結單"), "結單後狀態應顯示已結單");
       console.log("[e2e:menus] ✅ 結單後狀態正確變更");
 
-      // 4. 套用歷史樣板
+      // 4. 套用歷史樣板（依 TEMPLATE_STORE 名稱找 option，不用 nth-child 以免選到舊樣板）
       await page.goto(`${BASE_URL}/admin/menus/new`, { waitUntil: "networkidle0" });
-      const templateOptionValue = await page.$eval(
-        "#templateSelect option:nth-child(2)",
-        (el) => el.value
-      );
+      const templateOptionValue = await page.evaluate((storeName) => {
+        const options = Array.from(document.querySelectorAll("#templateSelect option"));
+        const opt = options.find((o) => o.text === storeName);
+        return opt ? opt.value : "";
+      }, TEMPLATE_STORE);
+      assert(templateOptionValue, `應在樣板下拉選單中找到「${TEMPLATE_STORE}」`);
       await page.select("#templateSelect", templateOptionValue);
       const storeNameValue = await page.$eval("#storeName", (el) => el.value);
-      assert(storeNameValue === "阿明便當", `套用樣板後店家名稱應為「阿明便當」，實際：${storeNameValue}`);
+      assert(storeNameValue === TEMPLATE_STORE, `套用樣板後店家名稱應為「${TEMPLATE_STORE}」，實際：${storeNameValue}`);
       const firstItemName = await page.$eval('input[name="itemName"]', (el) => el.value);
       assert(firstItemName.length > 0, "套用樣板後第一個品項名稱應自動帶入");
       console.log("[e2e:menus] ✅ 套用歷史樣板成功自動帶入店家與品項");
@@ -121,7 +148,7 @@ async function main() {
         page.waitForNetworkIdle(),
       ]);
       tableText = await page.$eval("table", (el) => el.innerText);
-      assert(tableText.includes("阿明便當"), "套用樣板建立的菜單應出現在列表");
+      assert(tableText.includes(TEMPLATE_STORE), "套用樣板建立的菜單應出現在列表");
       console.log("[e2e:menus] ✅ 套用樣板建立的菜單成功送出");
     } finally {
       await browser.close();

@@ -1,16 +1,10 @@
-// 訂單的「資料存取」抽象層（對應 docs/LunchBot-plan.md 4.7、4.8）。
-// 目前狀態：先用伺服器記憶體陣列頂著，之後接 Supabase 時把函式內部換成
-// 查詢 orders / order_items 即可，呼叫端（Server Actions / 頁面）不需要改動。
-//
-// ⚠️ 用 globalThis 存資料，原因見 src/lib/data/menus.ts 開頭註解
-// （Route Handler 跟 Server Action 在 dev 模式下可能各自有獨立模組實例）。
-import { randomUUID } from "node:crypto";
+import { supabase } from "../supabase";
 import { getMenu } from "./menus";
 
 export type OrderItemRecord = {
   id: string;
   menuItemId: string;
-  itemName: string; // 為了顯示方便，下單當下把品名一起記下來（即使之後菜單品項被改也不影響歷史訂單顯示）
+  itemName: string;
   price: number;
   quantity: number;
   customNotes: string | null;
@@ -35,57 +29,88 @@ export type OrderItemInput = {
   customNotes?: string | null;
 };
 
-declare global {
-  var __lunchbot_orders__: Order[] | undefined;
+type OrderRow = {
+  id: string;
+  menu_id: string;
+  employee_id: string;
+  total_amount: number;
+  status: string;
+  source: string;
+  order_items: {
+    id: string;
+    menu_item_id: string;
+    quantity: number;
+    custom_notes: string | null;
+    menu_items: { item_name: string; price: number };
+  }[];
+};
+
+function toOrder(row: OrderRow): Order {
+  return {
+    id: row.id,
+    menuId: row.menu_id,
+    employeeId: row.employee_id,
+    totalAmount: row.total_amount,
+    status: row.status as OrderStatus,
+    source: row.source as OrderSource,
+    items: (row.order_items ?? []).map((i) => ({
+      id: i.id,
+      menuItemId: i.menu_item_id,
+      itemName: i.menu_items.item_name,
+      price: i.menu_items.price,
+      quantity: i.quantity,
+      customNotes: i.custom_notes,
+    })),
+  };
 }
 
-const orders: Order[] = (globalThis.__lunchbot_orders__ ??= []);
+const ORDER_SELECT =
+  "id, menu_id, employee_id, total_amount, status, source, order_items(id, menu_item_id, quantity, custom_notes, menu_items(item_name, price))";
 
 export async function getOrder(menuId: string, employeeId: string): Promise<Order | undefined> {
-  return orders.find((o) => o.menuId === menuId && o.employeeId === employeeId);
+  const { data, error } = await supabase
+    .from("orders")
+    .select(ORDER_SELECT)
+    .eq("menu_id", menuId)
+    .eq("employee_id", employeeId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? toOrder(data as unknown as OrderRow) : undefined;
 }
 
-/** 給後台「員工訂單管理」用：列出某張菜單目前所有人的訂單（含已取消的）。 */
 export async function listOrdersByMenu(menuId: string): Promise<Order[]> {
-  return orders.filter((o) => o.menuId === menuId);
+  const { data, error } = await supabase
+    .from("orders")
+    .select(ORDER_SELECT)
+    .eq("menu_id", menuId);
+  if (error) throw new Error(error.message);
+  return (data as unknown as OrderRow[]).map(toOrder);
 }
 
 export type UpsertOrderResult = { ok: true; order: Order } | { ok: false; error: string };
 
-/**
- * 新增或更新訂單（依 (menu_id, employee_id) 視為同一筆，這就是計劃文件設計
- * 決策裡說的「送出動作實作為 upsert，支援截止前修改訂單」）。
- *
- * @param source `self`：員工自助透過 LIFF 送出，受 menu 是否為 open 限制；
- *   `assisted`：助理代客新增/修改，不受此限制。
- */
 export async function upsertOrder(
   menuId: string,
   employeeId: string,
   items: OrderItemInput[],
   source: OrderSource
 ): Promise<UpsertOrderResult> {
+  // 取菜單（含品項），同時驗證狀態
   const menu = await getMenu(menuId);
-  if (!menu) {
-    return { ok: false, error: "找不到這張菜單" };
-  }
+  if (!menu) return { ok: false, error: "找不到這張菜單" };
   if (source === "self" && menu.status !== "open") {
     return { ok: false, error: "這張菜單已經截止收單，無法送出/修改訂單" };
   }
 
   const validItems = items.filter((i) => i.quantity > 0);
-  if (validItems.length === 0) {
-    return { ok: false, error: "請至少選擇一個品項" };
-  }
+  if (validItems.length === 0) return { ok: false, error: "請至少選擇一個品項" };
 
-  const resolvedItems: OrderItemRecord[] = [];
+  // 驗證品項並計算金額
+  const resolvedItems: { menuItemId: string; itemName: string; price: number; quantity: number; customNotes: string | null }[] = [];
   for (const item of validItems) {
     const menuItem = menu.items.find((mi) => mi.id === item.menuItemId);
-    if (!menuItem) {
-      return { ok: false, error: "品項不存在於這張菜單，請重新整理頁面" };
-    }
+    if (!menuItem) return { ok: false, error: "品項不存在於這張菜單，請重新整理頁面" };
     resolvedItems.push({
-      id: randomUUID(),
       menuItemId: menuItem.id,
       itemName: menuItem.itemName,
       price: menuItem.price,
@@ -96,31 +121,51 @@ export async function upsertOrder(
 
   const totalAmount = resolvedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
-  const existing = orders.find((o) => o.menuId === menuId && o.employeeId === employeeId);
-  if (existing) {
-    existing.items = resolvedItems;
-    existing.totalAmount = totalAmount;
-    existing.status = "pending";
-    existing.source = source;
-    return { ok: true, order: existing };
-  }
+  // Upsert order（衝突時更新）
+  const { data: orderData, error: orderErr } = await supabase
+    .from("orders")
+    .upsert(
+      {
+        menu_id: menuId,
+        employee_id: employeeId,
+        total_amount: totalAmount,
+        status: "pending",
+        source,
+      },
+      { onConflict: "menu_id,employee_id" }
+    )
+    .select("id")
+    .single();
+  if (orderErr) throw new Error(orderErr.message);
 
-  const order: Order = {
-    id: randomUUID(),
-    menuId,
-    employeeId,
-    totalAmount,
-    status: "pending",
-    source,
-    items: resolvedItems,
-  };
-  orders.push(order);
-  return { ok: true, order };
+  const orderId = (orderData as { id: string }).id;
+
+  // 刪除舊品項，重新插入（order_items 有 ON DELETE CASCADE on order_id）
+  const { error: delErr } = await supabase
+    .from("order_items")
+    .delete()
+    .eq("order_id", orderId);
+  if (delErr) throw new Error(delErr.message);
+
+  const { error: insertErr } = await supabase.from("order_items").insert(
+    resolvedItems.map((i) => ({
+      order_id: orderId,
+      menu_item_id: i.menuItemId,
+      quantity: i.quantity,
+      custom_notes: i.customNotes,
+    }))
+  );
+  if (insertErr) throw new Error(insertErr.message);
+
+  const order = await getOrder(menuId, employeeId);
+  return { ok: true, order: order! };
 }
 
 export async function cancelOrder(menuId: string, employeeId: string): Promise<void> {
-  const order = orders.find((o) => o.menuId === menuId && o.employeeId === employeeId);
-  if (order) {
-    order.status = "cancelled";
-  }
+  const { error } = await supabase
+    .from("orders")
+    .update({ status: "cancelled" })
+    .eq("menu_id", menuId)
+    .eq("employee_id", employeeId);
+  if (error) throw new Error(error.message);
 }

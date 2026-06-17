@@ -50,6 +50,16 @@ export function assert(condition, message) {
   if (!condition) throw new Error(`斷言失敗：${message}`);
 }
 
+/**
+ * 在已登入的 page（或剛登入的 page）上建立員工。
+ * 呼叫前必須已登入（navigate 到 /admin 不需要再走登入流程）。
+ */
+export async function createAdminEmployee(page, name, baseUrl) {
+  await page.goto(`${baseUrl}/admin/employees`, { waitUntil: "networkidle0" });
+  await page.type("#employeeName", name);
+  await Promise.all([page.click("#add-employee-submit"), page.waitForNetworkIdle()]);
+}
+
 /** 共用登入流程：填表單送出，並等待導向 /admin。 */
 export async function loginAsMockAdmin(page, baseUrl) {
   const email = process.env.MOCK_ADMIN_EMAIL ?? "admin@lunchbot.local";

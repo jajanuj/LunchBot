@@ -7,12 +7,13 @@
 //   3. 成功新增的姓名應出現在員工列表中
 import { spawn } from "node:child_process";
 import puppeteer from "puppeteer";
-import { waitForServerReady, killProcessTree, assert, loginAsMockAdmin } from "./utils.mjs";
+import { waitForServerReady, killProcessTree, assert, loginAsMockAdmin, createAdminEmployee } from "./utils.mjs";
 
 const PORT = 3109;
 const BASE_URL = `http://localhost:${PORT}`;
 const NAME_A = `批次測試A_${Date.now()}`;
 const NAME_B = `批次測試B_${Date.now()}`;
+const DUPLICATE_NAME = `批次重複_${Date.now()}`;
 
 async function main() {
   console.log(`[e2e:employees-bulk] 啟動 Next.js dev server（port ${PORT}）...`);
@@ -28,13 +29,14 @@ async function main() {
       const page = await browser.newPage();
       await loginAsMockAdmin(page, BASE_URL);
 
-      await page.goto(`${BASE_URL}/admin/employees`, { waitUntil: "networkidle0" });
+      // 先建立 DUPLICATE_NAME，供批次匯入「略過」情境使用
+      await createAdminEmployee(page, DUPLICATE_NAME, BASE_URL);
 
-      // 展開 <details> 批次匯入區塊
+      // 展開 <details> 批次匯入區塊（Server Action 後頁面重新渲染，需重新展開）
       await page.click("details summary");
 
-      // 貼上：兩個新名字 + 一個跟種子資料重複的名字（王小明）
-      const pasted = `${NAME_A}\n${NAME_B}\n王小明`;
+      // 貼上：兩個新名字 + 一個已存在的重複姓名（DUPLICATE_NAME）
+      const pasted = `${NAME_A}\n${NAME_B}\n${DUPLICATE_NAME}`;
       await page.type("#namesText", pasted);
 
       await Promise.all([
