@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { Menu } from "@/lib/data/menus";
-import { batchDeleteMenusAction, deleteMenuAction } from "./actions";
+import { batchDeleteMenusAction } from "./actions";
 
 const STATUS_LABEL: Record<string, string> = {
   open: "收單中",
@@ -13,8 +13,8 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function MenuListTable({ menus }: { menus: Menu[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [batchPending, startBatch] = useTransition();
-  const [singlePending, startSingle] = useTransition();
+  const [pending, startTransition] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const allSelected = menus.length > 0 && selected.size === menus.length;
   const someSelected = selected.size > 0 && selected.size < menus.length;
@@ -32,29 +32,40 @@ export default function MenuListTable({ menus }: { menus: Menu[] }) {
     });
   }
 
-  function handleBatchDelete() {
-    if (!confirm(`確定要刪除選取的 ${selected.size} 筆菜單紀錄？此操作無法復原。`)) return;
-    startBatch(async () => {
+  function doDelete(ids: string[], confirmMsg: string) {
+    if (!confirm(confirmMsg)) return;
+    setDeleteError(null);
+    startTransition(async () => {
       const fd = new FormData();
-      for (const id of selected) fd.append("ids", id);
-      await batchDeleteMenusAction(fd);
-      setSelected(new Set());
+      for (const id of ids) fd.append("ids", id);
+      const result = await batchDeleteMenusAction(fd);
+      if (result?.error) {
+        setDeleteError(`刪除失敗：${result.error}`);
+      } else {
+        setSelected(new Set());
+      }
     });
+  }
+
+  function handleBatchDelete() {
+    doDelete(
+      Array.from(selected),
+      `確定要刪除選取的 ${selected.size} 筆菜單紀錄？此操作無法復原。`
+    );
   }
 
   function handleSingleDelete(menuId: string, label: string) {
-    if (!confirm(`確定要刪除「${label}」的菜單紀錄？此操作無法復原。`)) return;
-    startSingle(async () => {
-      const fd = new FormData();
-      fd.append("id", menuId);
-      await deleteMenuAction(fd);
-    });
+    doDelete([menuId], `確定要刪除「${label}」的菜單紀錄？此操作無法復原。`);
   }
-
-  const pending = batchPending || singlePending;
 
   return (
     <>
+      {deleteError && (
+        <p role="alert" className="mb-3 text-sm text-red-600">
+          ⚠️ {deleteError}
+        </p>
+      )}
+
       {selected.size > 0 && (
         <div className="mb-3 flex items-center gap-3">
           <button
@@ -63,7 +74,7 @@ export default function MenuListTable({ menus }: { menus: Menu[] }) {
             disabled={pending}
             className="bg-red-600 text-white rounded px-3 py-1.5 text-sm disabled:opacity-50"
           >
-            {batchPending ? "刪除中..." : `刪除選取（${selected.size} 筆）`}
+            {pending ? "刪除中..." : `刪除選取（${selected.size} 筆）`}
           </button>
           <button
             type="button"

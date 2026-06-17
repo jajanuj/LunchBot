@@ -185,10 +185,17 @@ export async function deleteMenuAction(formData: FormData): Promise<void> {
   redirect("/admin/menus");
 }
 
-export async function batchDeleteMenusAction(formData: FormData): Promise<void> {
+export async function batchDeleteMenusAction(
+  formData: FormData
+): Promise<{ error?: string }> {
   await verifySession();
 
   const ids = formData.getAll("ids").map(String).filter(Boolean);
-  await Promise.all(ids.map((id) => deleteMenu(id)));
+  try {
+    await Promise.all(ids.map((id) => deleteMenu(id)));
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "刪除失敗，請稍後再試" };
+  }
   revalidatePath("/admin/menus");
+  return {};
 }
