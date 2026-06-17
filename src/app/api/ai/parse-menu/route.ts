@@ -95,6 +95,8 @@ export async function POST(request: Request) {
 }
 規則：
 - 價格填整數；若圖片未標示價格，price 填 0。
+- 若品項有多個尺寸或規格（如 M/L、中/大、小/中/大），每個尺寸分別列為獨立一筆，品名後面加上尺寸標記。例如「奶茶 M 40元、L 55元」→ 列兩筆：{"itemName":"奶茶(M)","price":40} 與 {"itemName":"奶茶(L)","price":55}。
+- 所有欄位、所有分類的品項都要完整列出，不可省略。
 - 若圖片中完全看不到可辨識的菜單資訊，回傳 { "storeName": null, "items": [] }。`;
 
   let rawResponse: unknown;
@@ -111,7 +113,7 @@ export async function POST(request: Request) {
         ],
       },
     ],
-    generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
+    generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
   });
 
   try {
