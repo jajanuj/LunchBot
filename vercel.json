@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/tasks/daily-reset",
+      "path": "/api/cron/menu-maintenance",
       "schedule": "0 22 * * *"
     }
   ]
