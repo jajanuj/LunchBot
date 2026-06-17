@@ -271,14 +271,14 @@
 - [x] 開發 Next.js 後台：店家/菜單 CRUD（手動輸入模式）—— `/admin/menus`
 - [x] 開發歷史樣板（`store_templates` / `template_items`）載入與套用功能 —— 與菜單 CRUD 一併完成
 
-#### 階段二：LINE Bot 與 LIFF 點餐流程 — 🔄 進行中
+#### 階段二：LINE Bot 與 LIFF 點餐流程 — ✅ 已全部完成（2026-06-17）
 - [x] 申請並設定 LINE Messaging API（StockBot channel）+ LIFF App（LunchBot 點餐 channel，LIFF ID 已取得）—— `LINE_GROUP_ID` 已透過 Webhook log 取得（測試群組）
 - [x] 實作 Webhook 接收與 `X-Line-Signature` 簽章驗證 —— `/api/line/webhook`，用官方 `@line/bot-sdk`
 - [x] 實作 Flex Message 菜單推播（同日多場次以 Carousel 多頁卡片合併呈現於同一則訊息）—— `/admin/menus/[id]` 推播按鈕，已實測發送成功
 - [x] 實作 LIFF 點餐頁面：身分綁定（防呆）、品項選擇、備註、送出 / 修改 / 取消（upsert 邏輯，無需通知）—— `/liff/order`
 - [x] 實作截止時間自動關閉菜單（Vercel Cron / Supabase pg_cron）—— `/api/cron/close-expired-menus` + `vercel.json`
 - [x] 實作截止前提醒推播（依 `reminder_minutes_before` / `reminder_sent_at` 設定，到時間自動發送一次提醒訊息）—— 與自動結單合併在 `/api/cron/menu-maintenance`
-- [ ] 實作助理後台「代客新增/修改訂單」功能（不受收單狀態限制，寫入時標記 `orders.source = 'assisted'`）
+- [x] 實作助理後台「代客新增/修改訂單」功能（不受收單狀態限制，寫入時標記 `orders.source = 'assisted'`）—— `/admin/menus/[id]` 可展開區塊，可逐筆取消
 
 #### 階段三：AI 視覺解析菜單匯入 — ⏳ 待處理（需先申請 Gemini API Key，見下方第 6.1 節）
 - [ ] 整合 Gemini API，實作圖片上傳（Supabase Storage）與 OCR 解析 API Route
@@ -327,6 +327,7 @@
 
 | 版本號 | 修訂日期 | 修訂人員 | 變更類型 | 變更描述與主要修改內容 |
 | :--- | :--- | :--- | :--- | :--- |
+| **v1.9.0** | 2026-06-17 | James | 開發進度更新 | 第 6 節 WBS 階段二最後一項完成：助理後台「代客新增/修改訂單」功能（`/admin/menus/[id]` 可展開區塊，選員工填數量 upsert，`source='assisted'`，可逐筆取消）。階段二標記為「✅ 已全部完成」，E2E 情境共 41 個皆通過。下一步：等老闆申請 Gemini API Key 後開始階段三。 |
 | **v1.8.0** | 2026-06-16 | James | 開發進度更新 | 第 6 節 WBS 階段二新增完成項目：截止前提醒推播，與自動結單合併為同一個排程端點 `/api/cron/menu-maintenance`（原 `close-expired-menus` 重新命名擴充）。新增菜單時可選填提醒分鐘數。階段二剩餘：助理代客新增/修改訂單。 |
 | **v1.7.0** | 2026-06-16 | James | 開發進度更新 | 第 6 節 WBS 階段二新增完成項目：截止時間自動關閉菜單（`/api/cron/close-expired-menus` + `vercel.json`）。開發過程中發現並修正 mock 資料層架構性 bug：Route Handler 與 Server Action 在 dev 模式下模組執行環境可能不同，改用 `globalThis` 確保資料一致共享。階段二剩餘：提醒推播、助理代客下單。 |
 | **v1.6.0** | 2026-06-16 | James | 開發進度更新 | 第 6 節 WBS 階段二新增完成項目：Flex Message 菜單推播（`/admin/menus/[id]`，已實測發送至 LINE 群組成功）、LIFF 點餐頁面（`/liff/order`，含身分綁定/點餐/修改/取消/截止鎖定）。階段二剩餘：截止自動關閉、提醒推播、助理代客下單。 |

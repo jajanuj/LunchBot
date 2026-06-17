@@ -15,26 +15,26 @@
     - 員工名冊管理：`/admin/employees`，手動新增（防重複）/ 批次匯入（貼名單或上傳 .csv/.txt，回報成功/略過摘要）/ 列表（含 LINE 綁定狀態）/ 刪除
     - 菜單管理：`/admin/menus`，手動輸入（動態品項列）+ 歷史樣板套用（自動帶入店家/品項，可同步存為新樣板）+ 結單/刪除
     - 上述 employees / menus / storeTemplates 三個資料層皆先用記憶體陣列頂著，介面設計成之後可直接換成 Supabase 查詢
-  - **WBS 階段二進行中**：
+  - **WBS 階段二（LINE Bot 與 LIFF 點餐流程）全部完成：**
     - 外部帳號全部到位：StockBot（Messaging API channel，Channel Access Token / Channel Secret 已取得）、LunchBot 點餐（LINE Login channel，LIFF ID `2010418986-djEPOUcf` 已取得）、測試群組（StockBot 已加入，`LINE_GROUP_ID` 已取得）
     - LINE Webhook 接收與簽章驗證：`/api/line/webhook`，用官方 `@line/bot-sdk` 的 `validateSignature` 驗證，記錄所有事件並偵測群組事件印出 groupId
     - 用 ngrok 實測 Webhook 全流程通過：LINE 後台 Verify 成功、群組訊息事件正確被接收與記錄
     - Flex Message 菜單推播：`/admin/menus/[id]` 新增「推播至 LINE 群組」按鈕，同一天收單中的菜單合併成一則 Carousel 訊息推播，已實際發送到測試群組驗證成功（`npm run verify:line-push` 可重複手動驗證，故意不放進自動化測試避免洗群組版面）
     - LIFF 點餐頁面：`/liff/order`，身分綁定（從未綁定名單選姓名，防冒名）+ 點餐（數量/備註）+ upsert 修改 + 取消/重新點餐 + 截止後鎖定唯讀；因 `liff.getProfile()` 需要真實 LINE App 環境，加了僅非正式環境出現的「開發測試模式」身分模擬入口
     - 截止時間自動關閉菜單 + 截止前提醒推播：合併在 `/api/cron/menu-maintenance`（CRON_SECRET 驗證），`vercel.json` 設定 Vercel Cron 每 10 分鐘呼叫一次；新增菜單時可選填「提醒分鐘數」，到期未發送過就推播文字訊息提醒，避免重複發送
-  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 37 個情境）皆通過
+    - 助理代客新增/修改訂單：`/admin/menus/[id]` 可展開的「助理代客新增/修改訂單」區塊，選員工填數量 upsert，不受收單狀態限制（`source='assisted'`），可逐筆取消
+  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 41 個情境）皆通過
 
 - 🔄 **進行中**
   - Supabase 資料庫 schema — `supabase/migrations/0001_init_schema.sql`、`0002_rls_policies.sql` 已依計劃文件第 4 節寫好（9 張表 + RLS），但因 Supabase 專案尚未建立、本機也沒有 psql/docker，**無法實際套用驗證**。待老闆建立 Supabase 專案、提供 Project URL / anon key / service_role key 後即可套用並驗證
 
 - ⏳ **待處理**
-  - WBS 階段二剩餘項目：助理代客新增/修改訂單
+  - WBS 階段三（Gemini AI 菜單辨識）：需要老闆先申請 Google Gemini API Key，目前是階段二全部完成後唯一還卡著的外部依賴
+  - WBS 階段四（結算彙整與薪資扣款）
   - 提醒推播的「真的發送成功」只用人工方式驗證過一次（自動化測試只測「沒有提醒到期」分支，避免每次測試都真的發訊息到群組），若之後改了 `buildReminderText()` 或推播邏輯，建議照 `npm run verify:line-push` 的模式寫一個對應的手動驗證腳本
   - 部署到 Vercel 時要確認方案的 Cron 執行頻率限制（Hobby 方案曾經一度限制為每天最多 1 次），若不符合「每 10 分鐘」的設計需求，要評估改成每天固定時段或升級方案
   - 安全性待強化：LIFF 身分目前信任前端傳來的 lineUserId，沒有用 `liff.getIDToken()` 做伺服器端 JWT 驗證（內部 MVP 風險可接受，未來可加強，見 `src/app/liff/order/actions.ts` 註解）
-  - WBS 階段三（Gemini AI 菜單辨識）：需要老闆先申請 Google Gemini API Key
-  - WBS 階段四（結算彙整與薪資扣款）
-  - 階段一所有 mock 資料層（employees / menus / storeTemplates）最終都要換成真正的 Supabase 查詢，待 Supabase 專案建立後一起處理
+  - 階段一、二所有 mock 資料層（employees / menus / storeTemplates / orders）最終都要換成真正的 Supabase 查詢，待 Supabase 專案建立後一起處理
 
 - ⚠️ **遇到的問題 / 已修正紀錄**
   - `create-next-app` 預設會產生 `CLAUDE.md`（內容為 `@AGENTS.md` 指向檔），Windows 檔案系統不分大小寫，與既有的 `claude.md` 專案規範檔是同一個檔案，搬移專案骨架時不慎覆蓋掉原內容。已立即發現並用對話中讀取過的原始內容還原，且移除了多餘的 `AGENTS.md`。**後續若再次 scaffold 專案或新增工具，需注意 Windows 環境下檔名大小寫衝突的風險。**
