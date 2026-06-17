@@ -42,7 +42,9 @@
   - 無
 
 - ⏳ **待處理**
-  - WBS 階段四（結算彙整與薪資扣款）
+  - **WBS 階段四（結算彙整與薪資扣款）**
+    - **4A — 收單後彙整**（下一個要做）：`/admin/menus/[id]` 新增「店家叫貨清單」（品項 × 總數量）+ 「個人對帳清單」（每人 × 金額），含「推播叫貨清單至 LINE 群組」按鈕與「匯出個人對帳清單（CSV）」按鈕；自動結單 cron 同步推播叫貨清單
+    - **4B — 月結薪資扣款**：`/admin/payroll` 新頁面，選月份 → 產生 `payroll_deductions` → 匯出 CSV → 標記已匯出；需新增 Supabase migration（`payroll_deductions` 資料表）
   - 部署到 Vercel（設定環境變數、驗證 Cron Job 執行頻率）
   - 提醒推播的「真的發送成功」只用人工方式驗證過一次（自動化測試只測「沒有提醒到期」分支，避免每次測試都真的發訊息到群組），若之後改了 `buildReminderText()` 或推播邏輯，建議照 `npm run verify:line-push` 的模式寫一個對應的手動驗證腳本
   - 部署到 Vercel 時要確認方案的 Cron 執行頻率限制（Hobby 方案曾經一度限制為每天最多 1 次），若不符合「每 10 分鐘」的設計需求，要評估改成每天固定時段或升級方案
@@ -61,6 +63,8 @@
   - LINE Webhook 端點是 server-to-server，沒有瀏覽器頁面可以給 Puppeteer 點，`e2e/line-webhook.test.mjs` 改用真實 HTTP request + 用 `.env.local` 裡的真正 Channel Secret 計算簽章來測試，執行時要用 `node --env-file=.env.local` 載入環境變數（npm script 已內建）。
   - 用 ngrok 串接真實 LINE Webhook 測試時，一度收到 LINE 後台「404 Not Found」的驗證失敗。原因是老闆電腦上同時跑著另一個專案（StarDuty 星際學院，`D:\WebSite\StartDust`）佔住了 port 3000，LunchBot 的 `npm run dev` 偵測到後自動換到 3001，但 ngrok 還是轉去 3000，打到別的專案去了。**之後若 `npm run dev` 沒有顯示 `Local: http://localhost:3000`，要先確認有沒有其他專案佔用 3000**，不要假設一定是 3000。已協助關閉 StarDuty 的 process 讓 LunchBot 拿回 3000，問題排除。
   - LIFF E2E 測試裡，助理用的 page 物件如果在另一個 page（LIFF 頁面）做很多步驟期間閒置太久，之後再對它 `.click()` 偶爾會卡死（`Runtime.callFunctionOn timed out`，加大 `protocolTimeout` 也沒用）。改成每次助理操作（建立菜單、結單）都開一個全新的 page 物件用完就關閉，問題排除。另外：**同一個 browser context 已經登入過後，不能再對新 page 呼叫 `loginAsMockAdmin` 導去 `/login`**，因為 cookie 還在，`proxy.ts` 會直接把 `/login` 導回 `/admin`，等不到 `#email` 欄位；新開的 page 只要直接導去要操作的網址即可，不用重新登入。
+  - **Gemini 每日免費額度耗盡（2026-06-17）**：開發階段多次呼叫 Gemini API，`gemini-2.0-flash` 的每日免費額度在測試當天被耗盡（API 回傳 `RESOURCE_EXHAUSTED / GenerateRequestsPerDayPerProjectPerModel-FreeTier`）。已切換為 `gemini-2.5-flash`（各模型有獨立的每日 quota），同時補上 503 重試邏輯（原本只重試 429）。**注意：`.env.local` 的 GEMINI_API_KEY 若使用免費方案，每個模型每日有請求上限；若測試當天呼叫次數過多導致再度被限，同樣切換其他可用模型或等隔天 quota 重置（UTC 午夜重置）。**
+  - **E2E 測試資料隔離問題（2026-06-17）**：發現兩個測試套件在多次執行後會互相干擾：① `menu-reminder-logic` 建立含提醒設定的測試菜單後未清除，在下一次全套執行時這些殘留菜單的提醒時間到期，`cron-menu-maintenance` 的 `remindersSentCount` 不為 0 導致斷言失敗。修正：在 `menu-reminder-logic` 的 `finally` 區塊刪除所有測試菜單。② `ai-menu-import` 每次跑都建立相同店名（「阿明便當 AI測試店」）的菜單，同日期再次執行時觸發 `(menu_date, store_name)` unique constraint 衝突。修正：套用 AI 結果後為店家名稱加上 `_${Date.now()}` 時間戳確保唯一。**之後新寫 E2E 測試，所有會留在 DB 的測試資料（尤其是有 unique constraint 的欄位）都要加時間戳或在 finally 清除。**
 
 ---
 

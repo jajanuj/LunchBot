@@ -280,14 +280,15 @@
 - [x] 實作截止前提醒推播（依 `reminder_minutes_before` / `reminder_sent_at` 設定，到時間自動發送一次提醒訊息）—— 與自動結單合併在 `/api/cron/menu-maintenance`
 - [x] 實作助理後台「代客新增/修改訂單」功能（不受收單狀態限制，寫入時標記 `orders.source = 'assisted'`）—— `/admin/menus/[id]` 可展開區塊，可逐筆取消
 
-#### 階段三：AI 視覺解析菜單匯入 — ⏳ 待處理（需先申請 Gemini API Key，見下方第 6.1 節）
-- [ ] 整合 Gemini API，實作圖片上傳（Supabase Storage）與 OCR 解析 API Route
-- [ ] 開發前端校對介面（預覽表格、批次寫入 `menu_items`，並將原始辨識結果存入 `menu_ai_imports`）
-- [ ] 實作解析失敗 / 低信心度之容錯與重試流程
+#### 階段三：AI 視覺解析菜單匯入 — ✅ 已全部完成（2026-06-17）
+- [x] 整合 Gemini API（`gemini-2.5-flash`），實作圖片上傳（Supabase Storage）與 OCR 解析 API Route — `/api/ai/parse-menu`
+- [x] 開發前端校對介面（預覽表格、可逐筆編輯/刪除、套用後批次寫入 `menu_items`，並將原始辨識結果存入 `menu_ai_imports`）
+- [x] 實作解析失敗 / 容錯與重試流程（429 / 503 自動重試最多 3 次，失敗顯示明確錯誤訊息並保留手動輸入退路）
+- [x] E2E 測試 `e2e/ai-menu-import.test.mjs`（port 3118），全流程驗證通過
 
 #### 階段四：結算彙整與薪資扣款 — ⏳ 待處理
-- [ ] 實作收單後「店家叫貨清單」與「個人對帳清單」彙整與推播 / 匯出
-- [ ] 實作月結薪資扣款報表產生（寫入 `payroll_deductions`）與 CSV 匯出
+- [ ] **4A — 收單後彙整**：`/admin/menus/[id]` 新增「店家叫貨清單」（品項 × 總數量）與「個人對帳清單」（每人 × 金額）區塊，含「推播叫貨清單至 LINE 群組」按鈕與「匯出個人對帳清單（CSV）」按鈕；自動結單 cron 同步推播叫貨清單
+- [ ] **4B — 月結薪資扣款**：`/admin/payroll` 新頁面，選月份 → 產生 `payroll_deductions` 扣款紀錄 → 匯出 CSV → 標記已匯出；需新增資料庫 migration（`payroll_deductions` 資料表）
 
 #### 6.1 目前卡關的外部帳號申請
 階段二、三開工前，需要老闆先完成以下外部帳號申請（無法用 mock 資料模擬，因 LIFF 本質要在真實 LINE App / 真實 LIFF ID 下才能驗證）。**詳細逐步申請教學已整理在 [docs/PROGRESS.md](PROGRESS.md) 的「外部服務串接：目前缺什麼、怎麼申請」一節**，這裡只列需要拿到的項目：
@@ -327,6 +328,8 @@
 
 | 版本號 | 修訂日期 | 修訂人員 | 變更類型 | 變更描述與主要修改內容 |
 | :--- | :--- | :--- | :--- | :--- |
+| **v2.1.0** | 2026-06-17 | James | 開發進度更新 | 第 6 節 WBS 階段四細化為 4A（收單後彙整）/ 4B（月結薪資扣款）兩個子功能，分次開發。 |
+| **v2.0.0** | 2026-06-17 | James | 開發進度更新 | 第 6 節 WBS 階段三標記為「✅ 已全部完成」：整合 Gemini 2.5 Flash Vision API、Supabase Storage 菜單圖片上傳、前端 AI 校對介面、`menu_ai_imports` 留存原始辨識結果、E2E 全套 43 個情境通過（含 `e2e/ai-menu-import.test.mjs`）。同步修正 Gemini 免費額度耗盡（切換 `gemini-2.5-flash` 解決）與 E2E 測試資料隔離問題（menu-reminder-logic 清理 / ai-menu-import 店名唯一性）。 |
 | **v1.9.0** | 2026-06-17 | James | 開發進度更新 | 第 6 節 WBS 階段二最後一項完成：助理後台「代客新增/修改訂單」功能（`/admin/menus/[id]` 可展開區塊，選員工填數量 upsert，`source='assisted'`，可逐筆取消）。階段二標記為「✅ 已全部完成」，E2E 情境共 41 個皆通過。下一步：等老闆申請 Gemini API Key 後開始階段三。 |
 | **v1.8.0** | 2026-06-16 | James | 開發進度更新 | 第 6 節 WBS 階段二新增完成項目：截止前提醒推播，與自動結單合併為同一個排程端點 `/api/cron/menu-maintenance`（原 `close-expired-menus` 重新命名擴充）。新增菜單時可選填提醒分鐘數。階段二剩餘：助理代客新增/修改訂單。 |
 | **v1.7.0** | 2026-06-16 | James | 開發進度更新 | 第 6 節 WBS 階段二新增完成項目：截止時間自動關閉菜單（`/api/cron/close-expired-menus` + `vercel.json`）。開發過程中發現並修正 mock 資料層架構性 bug：Route Handler 與 Server Action 在 dev 模式下模組執行環境可能不同，改用 `globalThis` 確保資料一致共享。階段二剩餘：提醒推播、助理代客下單。 |
