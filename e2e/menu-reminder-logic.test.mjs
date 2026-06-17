@@ -7,7 +7,7 @@
 // src/app/api/cron/menu-maintenance/route.ts 裡用同一套邏輯接上
 // getLineMessagingClient()，本檔案只驗證「哪些菜單該被提醒」判斷對不對。
 import { assert } from "./utils.mjs";
-import { createMenu, findMenusDueForReminder, markReminderSent } from "../src/lib/data/menus.ts";
+import { createMenu, deleteMenu, findMenusDueForReminder, markReminderSent } from "../src/lib/data/menus.ts";
 
 function isoOffsetMinutes(minutes) {
   return new Date(Date.now() + minutes * 60_000).toISOString();
@@ -51,20 +51,29 @@ async function main() {
   });
   assert(noReminder.ok, "建立測試菜單應成功");
 
-  let dueList = await findMenusDueForReminder(now);
-  let dueIds = dueList.map((m) => m.id);
+  try {
+    let dueList = await findMenusDueForReminder(now);
+    let dueIds = dueList.map((m) => m.id);
 
-  assert(dueIds.includes(due.menu.id), "已到提醒時間的菜單應出現在到期清單");
-  assert(!dueIds.includes(notDue.menu.id), "還沒到提醒時間的菜單不應出現在到期清單");
-  assert(!dueIds.includes(noReminder.menu.id), "沒設定提醒的菜單不應出現在到期清單");
-  console.log("[menu-reminder-logic] ✅ 到期判斷邏輯正確（到期/未到期/沒設定提醒）");
+    assert(dueIds.includes(due.menu.id), "已到提醒時間的菜單應出現在到期清單");
+    assert(!dueIds.includes(notDue.menu.id), "還沒到提醒時間的菜單不應出現在到期清單");
+    assert(!dueIds.includes(noReminder.menu.id), "沒設定提醒的菜單不應出現在到期清單");
+    console.log("[menu-reminder-logic] ✅ 到期判斷邏輯正確（到期/未到期/沒設定提醒）");
 
-  // 4. 標記已發送後，同一張菜單不應該再出現在到期清單（避免重複發送）
-  await markReminderSent(due.menu.id, now);
-  dueList = await findMenusDueForReminder(now);
-  dueIds = dueList.map((m) => m.id);
-  assert(!dueIds.includes(due.menu.id), "已標記發送過的菜單不應再出現在到期清單");
-  console.log("[menu-reminder-logic] ✅ 標記已發送後不會重複出現在到期清單");
+    // 4. 標記已發送後，同一張菜單不應該再出現在到期清單（避免重複發送）
+    await markReminderSent(due.menu.id, now);
+    dueList = await findMenusDueForReminder(now);
+    dueIds = dueList.map((m) => m.id);
+    assert(!dueIds.includes(due.menu.id), "已標記發送過的菜單不應再出現在到期清單");
+    console.log("[menu-reminder-logic] ✅ 標記已發送後不會重複出現在到期清單");
+  } finally {
+    // 清除測試資料，避免殘留 menu 在下次跑全套測試時干擾 cron-menu-maintenance
+    await Promise.all([
+      deleteMenu(due.menu.id),
+      deleteMenu(notDue.menu.id),
+      deleteMenu(noReminder.menu.id),
+    ]);
+  }
 }
 
 main()

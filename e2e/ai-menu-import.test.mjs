@@ -126,11 +126,9 @@ async function main() {
       // 5. 填入必填欄位（日期、截止時間）並建立菜單
       const menuDate = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
       await setInputValue(page, "#menuDate", menuDate);
-      // 若 AI 未偵測到店家名稱，手動補上
-      const currentStoreName = await page.$eval("#storeName", (el) => el.value);
-      if (!currentStoreName.trim()) {
-        await page.type("#storeName", `AI測試店家_${Date.now()}`);
-      }
+      // 店家名稱加上時間戳，避免多次執行時因 (menu_date, store_name) unique constraint 衝突
+      const uniqueStoreName = `${storeNameValue || "AI測試店家"}_${Date.now()}`;
+      await setInputValue(page, "#storeName", uniqueStoreName);
       await setInputValue(page, "#cutoffTime", `${menuDate}T23:00`);
 
       await Promise.all([page.click("#create-menu-submit"), page.waitForNetworkIdle()]);
