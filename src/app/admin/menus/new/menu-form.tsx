@@ -17,6 +17,15 @@ function emptyRow(): ItemRow {
   return { key: crypto.randomUUID(), itemName: "", price: "" };
 }
 
+function todayStr() {
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 export default function MenuForm({ templates }: { templates: TemplateOption[] }) {
   const [state, formAction, pending] = useActionState(createMenuAction, undefined);
   const [storeName, setStoreName] = useState("");
@@ -124,7 +133,7 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
   return (
     <form action={formAction} className="flex flex-col gap-4 max-w-2xl">
       {/* AI 辨識區塊 */}
-      <details className="border rounded-lg p-3 bg-gray-50">
+      <details className="border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-100 dark:bg-gray-800">
         <summary className="cursor-pointer text-sm font-medium select-none">
           📷 AI 辨識菜單（選填）—— 上傳菜單圖片，自動提取品項與價格
         </summary>
@@ -165,7 +174,7 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
 
           {aiStatus === "done" && aiPreviewItems.length > 0 && (
             <div className="flex flex-col gap-2">
-              <p className="text-sm text-green-700">
+              <p className="text-sm text-green-700 dark:text-green-400">
                 ✅ 辨識完成，共 {aiPreviewItems.length} 個品項
                 {aiPreviewStoreName ? `，店家：${aiPreviewStoreName}` : ""}
                 。可在此校對後點「套用辨識結果」。
@@ -238,7 +247,14 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
           <label htmlFor="menuDate" className="text-sm font-medium">
             點餐日期
           </label>
-          <input id="menuDate" name="menuDate" type="date" required className="border rounded px-3 py-2" />
+          <input
+            id="menuDate"
+            name="menuDate"
+            type="date"
+            required
+            defaultValue={todayStr()}
+            className="border rounded px-3 py-2"
+          />
         </div>
         <div className="flex flex-col gap-1 flex-1">
           <label htmlFor="sessionName" className="text-sm font-medium">
@@ -272,6 +288,7 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
             name="cutoffTime"
             type="datetime-local"
             required
+            defaultValue={`${todayStr()}T11:30`}
             className="border rounded px-3 py-2"
           />
         </div>
