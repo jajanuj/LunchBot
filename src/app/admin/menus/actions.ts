@@ -112,10 +112,18 @@ export async function pushMenuNotificationAction(
     const client = getLineMessagingClient();
     await client.pushMessage({ to: groupId, messages: [message] });
   } catch (err) {
+    // @line/bot-sdk 拋出的 HTTPFetchError 帶有 .body 欄位，包含 LINE API 的詳細錯誤
+    let detail = err instanceof Error ? err.message : "未知錯誤";
+    if (err && typeof err === "object" && "body" in err) {
+      try {
+        const parsed = JSON.parse(String((err as { body: unknown }).body));
+        if (parsed?.message) detail = `${detail}（${parsed.message}）`;
+      } catch {
+        detail = `${detail}（${String((err as { body: unknown }).body)}）`;
+      }
+    }
     console.error("[push menu notification] 推播失敗：", err);
-    return {
-      error: `推播失敗：${err instanceof Error ? err.message : "未知錯誤"}`,
-    };
+    return { error: `推播失敗：${detail}` };
   }
 
   return { success: true, pushedCount: sameDayOpenMenus.length };
