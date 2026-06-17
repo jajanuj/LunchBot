@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { createMenuAction } from "../actions";
 
 type TemplateOption = {
@@ -11,6 +11,8 @@ type TemplateOption = {
 
 type ItemRow = { key: string; itemName: string; price: string };
 
+type AiStatus = "idle" | "loading" | "done" | "error";
+
 function emptyRow(): ItemRow {
   return { key: crypto.randomUUID(), itemName: "", price: "" };
 }
@@ -20,6 +22,15 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
   const [storeName, setStoreName] = useState("");
   const [items, setItems] = useState<ItemRow[]>([emptyRow()]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+
+  // AI 辨識相關狀態
+  const [aiStatus, setAiStatus] = useState<AiStatus>("idle");
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiImportId, setAiImportId] = useState<string | null>(null);
+  const [aiPreviewItems, setAiPreviewItems] = useState<ItemRow[]>([]);
+  const [aiPreviewStoreName, setAiPreviewStoreName] = useState<string | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function applyTemplate(templateId: string) {
     setSelectedTemplateId(templateId);
@@ -48,8 +59,159 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
     setItems((prev) => (prev.length > 1 ? prev.filter((row) => row.key !== key) : prev));
   }
 
+  function updateAiItem(key: string, field: "itemName" | "price", value: string) {
+    setAiPreviewItems((prev) =>
+      prev.map((row) => (row.key === key ? { ...row, [field]: value } : row))
+    );
+  }
+
+  function removeAiItem(key: string) {
+    setAiPreviewItems((prev) =>
+      prev.length > 1 ? prev.filter((row) => row.key !== key) : prev
+    );
+  }
+
+  async function analyzeImage() {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) return;
+
+    setAiStatus("loading");
+    setAiError(null);
+    setAiImportId(null);
+    setAiPreviewItems([]);
+
+    const fd = new FormData();
+    fd.append("image", file);
+
+    try {
+      const res = await fetch("/api/ai/parse-menu", { method: "POST", body: fd });
+      const data = (await res.json()) as {
+        ok: boolean;
+        error?: string;
+        importId?: string;
+        items?: { itemName: string; price: number }[];
+        storeName?: string | null;
+      };
+
+      if (data.importId) setAiImportId(data.importId);
+
+      if (!data.ok) {
+        setAiStatus("error");
+        setAiError(data.error ?? "辨識失敗，請重試");
+        return;
+      }
+
+      setAiPreviewItems(
+        (data.items ?? []).map((i) => ({
+          key: crypto.randomUUID(),
+          itemName: i.itemName,
+          price: String(i.price),
+        }))
+      );
+      setAiPreviewStoreName(data.storeName ?? null);
+      setAiStatus("done");
+    } catch {
+      setAiStatus("error");
+      setAiError("網路錯誤，請重試");
+    }
+  }
+
+  function applyAiResult() {
+    if (aiPreviewStoreName) setStoreName(aiPreviewStoreName);
+    setItems(aiPreviewItems.length > 0 ? aiPreviewItems : [emptyRow()]);
+  }
+
   return (
     <form action={formAction} className="flex flex-col gap-4 max-w-2xl">
+      {/* AI 辨識區塊 */}
+      <details className="border rounded-lg p-3 bg-gray-50">
+        <summary className="cursor-pointer text-sm font-medium select-none">
+          📷 AI 辨識菜單（選填）—— 上傳菜單圖片，自動提取品項與價格
+        </summary>
+        <div className="mt-3 flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <input
+              ref={fileInputRef}
+              id="ai-image-input"
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="text-sm"
+              onChange={(e) => {
+                setSelectedFileName(e.target.files?.[0]?.name ?? null);
+                setAiStatus("idle");
+                setAiError(null);
+                setAiImportId(null);
+                setAiPreviewItems([]);
+                setAiPreviewStoreName(null);
+              }}
+            />
+            <button
+              type="button"
+              id="ai-analyze-button"
+              disabled={!selectedFileName || aiStatus === "loading"}
+              onClick={analyzeImage}
+              className="bg-blue-600 text-white rounded px-3 py-1.5 text-sm disabled:opacity-50"
+            >
+              {aiStatus === "loading" ? "辨識中..." : "開始辨識"}
+            </button>
+          </div>
+
+          {aiStatus === "error" && aiError && (
+            <p role="alert" className="text-sm text-red-600">
+              ⚠️ {aiError}
+              <span className="ml-2 text-gray-500">（可直接在下方手動輸入）</span>
+            </p>
+          )}
+
+          {aiStatus === "done" && aiPreviewItems.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-green-700">
+                ✅ 辨識完成，共 {aiPreviewItems.length} 個品項
+                {aiPreviewStoreName ? `，店家：${aiPreviewStoreName}` : ""}
+                。可在此校對後點「套用辨識結果」。
+              </p>
+              <div className="flex flex-col gap-1" id="ai-preview-items">
+                {aiPreviewItems.map((row) => (
+                  <div key={row.key} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={row.itemName}
+                      onChange={(e) => updateAiItem(row.key, "itemName", e.target.value)}
+                      className="border rounded px-2 py-1 text-sm flex-1"
+                      aria-label="AI 辨識品名"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={row.price}
+                      onChange={(e) => updateAiItem(row.key, "price", e.target.value)}
+                      className="border rounded px-2 py-1 text-sm w-24"
+                      aria-label="AI 辨識價格"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeAiItem(row.key)}
+                      className="text-xs text-red-600 underline"
+                    >
+                      移除
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                id="ai-apply-button"
+                onClick={applyAiResult}
+                className="self-start bg-green-600 text-white rounded px-3 py-1.5 text-sm"
+              >
+                套用辨識結果 →
+              </button>
+            </div>
+          )}
+        </div>
+      </details>
+
+      {/* 歷史樣板 */}
       {templates.length > 0 && (
         <div className="flex flex-col gap-1">
           <label htmlFor="templateSelect" className="text-sm font-medium">
@@ -177,6 +339,9 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
         <input type="checkbox" name="saveAsTemplate" />
         將這個店家的品項存為歷史樣板（下次可一鍵套用）
       </label>
+
+      {/* AI import ID 隱藏欄位，供 Server Action 建立菜單後回寫 menu_id */}
+      {aiImportId && <input type="hidden" name="aiImportId" value={aiImportId} />}
 
       {state?.error && (
         <p role="alert" className="text-sm text-red-600">

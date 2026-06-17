@@ -6,6 +6,7 @@ import { verifySession } from "@/lib/auth/dal";
 import { createMenu, closeMenu, deleteMenu, getMenu, listOpenMenusByDate } from "@/lib/data/menus";
 import { upsertTemplate } from "@/lib/data/storeTemplates";
 import { upsertOrder, cancelOrder } from "@/lib/data/orders";
+import { linkMenuAiImport } from "@/lib/data/menuAiImports";
 import { buildMenuCarouselMessage } from "@/lib/line/flexMessage";
 import { getLineMessagingClient } from "@/lib/line/client";
 
@@ -15,7 +16,7 @@ export async function createMenuAction(
   _prevState: CreateMenuActionState,
   formData: FormData
 ): Promise<CreateMenuActionState> {
-  await verifySession();
+  const user = await verifySession();
 
   const menuDate = String(formData.get("menuDate") ?? "");
   const sessionName = String(formData.get("sessionName") ?? "");
@@ -25,6 +26,7 @@ export async function createMenuAction(
   const itemNames = formData.getAll("itemName").map(String);
   const itemPrices = formData.getAll("itemPrice").map(String);
   const saveAsTemplate = formData.get("saveAsTemplate") === "on";
+  const aiImportId = String(formData.get("aiImportId") ?? "");
 
   const items = itemNames.map((name, i) => ({
     itemName: name,
@@ -47,6 +49,15 @@ export async function createMenuAction(
   if (saveAsTemplate) {
     const validItems = items.filter((i) => i.itemName.trim().length > 0);
     await upsertTemplate(storeName, validItems);
+  }
+
+  // 若此次建立來自 AI 辨識，回填 menu_id 與助理校對後的品項
+  if (aiImportId) {
+    const reviewedItems = result.menu.items.map((i) => ({
+      itemName: i.itemName,
+      price: i.price,
+    }));
+    await linkMenuAiImport(aiImportId, result.menu.id, reviewedItems, user.displayName);
   }
 
   revalidatePath("/admin/menus");

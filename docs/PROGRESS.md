@@ -30,13 +30,18 @@
     - 修正 cutoff_time 時區問題：`datetime-local` 輸入值統一轉換成 UTC ISO 格式後存入
     - 修正 menu-reminder-logic 測試 TypeScript import 解析問題：加上明確 `.ts` 副檔名與 `--env-file=.env.local`
     - 修正 liff-order / assisted-order / menus 測試在多次執行後的資料污染問題（改為依店家名稱定位，不依 rows[0]）
-  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 42 個情境）皆通過
+  - **WBS 階段三（Gemini AI 菜單辨識）全部完成（2026-06-17）：**
+    - 新增 `src/lib/data/menuAiImports.ts`：管理 `menu_ai_imports` 資料表的 CRUD（createMenuAiImport / linkMenuAiImport）
+    - 新增 `src/app/api/ai/parse-menu/route.ts`：接收菜單圖片、上傳至 Supabase Storage、呼叫 Gemini API（`gemini-2.5-flash`）辨識品項與價格、儲存原始回應紀錄；遇 429 / 503 最多重試 3 次
+    - 修改 `src/app/admin/menus/new/menu-form.tsx`：新增「AI 辨識菜單」摺疊區塊（上傳圖片 → 辨識 → 可逐筆編輯/刪除預覽品項 → 套用至表單）
+    - 修改 `src/app/admin/menus/actions.ts`：`createMenuAction` 建立菜單後自動將 aiImportId 回填 menu_id 與助理校對後品項至 `menu_ai_imports`
+    - 新增 `e2e/ai-menu-import.test.mjs`（port 3118）：以 Puppeteer 截圖產生測試菜單圖片 → 上傳辨識 → 驗證辨識結果 → 套用 → 建立菜單全流程，E2E 測試通過
+  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 43 個情境）皆通過
 
 - 🔄 **進行中**
   - 無
 
 - ⏳ **待處理**
-  - WBS 階段三（Gemini AI 菜單辨識）：需要老闆先申請 Google Gemini API Key，目前是 Supabase 整合完成後唯一還卡著的外部依賴
   - WBS 階段四（結算彙整與薪資扣款）
   - 部署到 Vercel（設定環境變數、驗證 Cron Job 執行頻率）
   - 提醒推播的「真的發送成功」只用人工方式驗證過一次（自動化測試只測「沒有提醒到期」分支，避免每次測試都真的發訊息到群組），若之後改了 `buildReminderText()` 或推播邏輯，建議照 `npm run verify:line-push` 的模式寫一個對應的手動驗證腳本
@@ -69,7 +74,7 @@
 | LINE Developers - Messaging API（StockBot channel） | Channel Access Token / Channel Secret | 建立 LINE Bot、推送 Flex Message、驗證 Webhook 簽章 | ✅ **已取得**（已存進 `.env.local`，曾經明碼曝光過已重新簽發） | `LINE_CHANNEL_ACCESS_TOKEN` / `LINE_CHANNEL_SECRET` |
 | LINE Developers - LIFF（LunchBot 點餐 channel） | LIFF ID | 員工點餐頁面（LIFF App） | ✅ **已取得**：`2010418986-djEPOUcf` | `NEXT_PUBLIC_LINE_LIFF_ID` |
 | LINE 群組 | 群組 ID | 推播目標群組 | ✅ **已取得**（測試群組，StockBot 已加入）：`Cdd92ab1b9874fa917a7237626a26b51d` | `LINE_GROUP_ID` |
-| Google Gemini | API Key | 菜單圖片 AI 辨識 | 尚未申請 | `GEMINI_API_KEY` |
+| Google Gemini | API Key | 菜單圖片 AI 辨識 | ✅ **已取得，已整合**（`.env.local` 已設定，使用 `gemini-2.5-flash`） | `GEMINI_API_KEY` |
 
 拿到金鑰後，請依 `.env.local.example` 把對應的環境變數加進你自己電腦的 `.env.local`（此檔已被 `.gitignore` 排除、不會進版控）。**金鑰不需要貼給我**，你自己填好存檔即可，下次接手開發時會自動讀到。
 
