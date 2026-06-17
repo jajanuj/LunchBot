@@ -62,7 +62,18 @@ export default async function MenuDetailPage({
       </table>
 
       {menu.status === "open" && (
-        <div className="mb-4">
+        <div className="mb-4 flex flex-col gap-3">
+          <div>
+            <p className="text-sm text-gray-600 mb-1">點餐連結（可複製給員工或自行測試）：</p>
+            <a
+              href={`/liff/order?menuId=${menu.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-blue-600 underline break-all"
+            >
+              /liff/order?menuId={menu.id}
+            </a>
+          </div>
           <PushNotificationButton menuId={menu.id} />
         </div>
       )}
