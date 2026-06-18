@@ -56,6 +56,12 @@
     - 飲料類菜單：所有品項顯示冰量（熱/正常冰/少冰/微冰/去冰）+ 糖量（全糖/少糖/半糖/微糖/無糖）pill 選鈕，另保留備註欄
     - 食物類菜單（或不指定）：品項只顯示備註欄
     - 電腦版 LINE 登入問題修正：`liff.login({ redirectUri: window.location.href })` 確保 OAuth 登入後跳回含 menuId 的原始頁面，menuId 不再遺失
+  - **UI 改善 — 深色模式 + 品名摺疊 + 員工綁定說明（2026-06-18）：**
+    - 修正後台所有頁面 `text-gray-500/600` 在深色模式下看不清楚的問題（補上 `dark:text-gray-300/400`），涵蓋 layout、首頁、菜單管理、菜單詳情、助理代客、員工名冊、批次匯入
+    - 菜單詳情頁品項表格改為 `<details>` 預設摺疊（「品項清單（N 項，點擊展開）」），品項很多時不需大量捲動
+    - `AssistedOrderSection` 的員工下拉、數量輸入框補上深色模式樣式（`dark:bg-gray-800 dark:text-white dark:border-gray-600`）
+    - 員工名冊頁新增「LINE 綁定說明」摺疊區塊，五步驟說明首次綁定流程
+    - E2E 測試同步修正：menus 測試在斷言品項前展開 `<details>`；assisted-order 測試改用 `id="assisted-order-details"` 選取器，不再依賴 `document.querySelector("details")` 位置順序
   - `npm run build` / `npm run lint` / `npm run test:e2e`（共 43 個情境）皆通過
 
 - 🔄 **進行中**
