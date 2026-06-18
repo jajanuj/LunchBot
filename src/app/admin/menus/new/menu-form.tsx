@@ -230,7 +230,7 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
             id="templateSelect"
             value={selectedTemplateId}
             onChange={(e) => applyTemplate(e.target.value)}
-            className="border rounded px-3 py-2"
+            className="border rounded px-3 py-2 bg-white dark:bg-gray-800 dark:text-white"
           >
             <option value="">不使用樣板，手動輸入</option>
             {templates.map((t) => (

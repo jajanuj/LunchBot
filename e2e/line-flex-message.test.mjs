@@ -42,12 +42,14 @@ function main() {
 
   const lunchButton = multi.contents.contents[0].footer.contents[0];
   const drinkButton = multi.contents.contents[1].footer.contents[0];
+  const expectedLunchUri = `https://liff.line.me/${LIFF_ID}?liff.state=${encodeURIComponent("?menuId=menu-lunch")}`;
+  const expectedDrinkUri = `https://liff.line.me/${LIFF_ID}?liff.state=${encodeURIComponent("?menuId=menu-drink")}`;
   assert(
-    lunchButton.action.uri === `https://liff.line.me/${LIFF_ID}?menuId=menu-lunch`,
+    lunchButton.action.uri === expectedLunchUri,
     `午餐按鈕網址不正確：${lunchButton.action.uri}`
   );
   assert(
-    drinkButton.action.uri === `https://liff.line.me/${LIFF_ID}?menuId=menu-drink`,
+    drinkButton.action.uri === expectedDrinkUri,
     `飲料按鈕網址不正確：${drinkButton.action.uri}`
   );
   console.log("[line-flex-message] ✅ 多場次各自產生獨立 bubble 與正確的點餐網址");

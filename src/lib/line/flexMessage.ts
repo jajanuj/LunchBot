@@ -61,7 +61,8 @@ function buildMenuBubble(menu: Menu, liffId: string): messagingApi.FlexBubble {
           action: {
             type: "uri",
             label: "我要點餐",
-            uri: `https://liff.line.me/${liffId}?menuId=${menu.id}`,
+            // liff.state 讓參數在 LINE 認證跳轉後仍能保留（直接加 ?menuId= 可能被丟棄）
+            uri: `https://liff.line.me/${liffId}?liff.state=${encodeURIComponent(`?menuId=${menu.id}`)}`,
           },
         },
       ],
