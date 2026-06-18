@@ -65,8 +65,7 @@ function toMenu(row: MenuRow): Menu {
   };
 }
 
-// category 欄位在 migration 0005 套用後才存在，MENU_SELECT 待 migration 套用後再加回
-const MENU_SELECT = "id, menu_date, session_name, store_name, cutoff_time, reminder_minutes_before, reminder_sent_at, status, menu_items(id, item_name, price)";
+const MENU_SELECT = "id, menu_date, session_name, store_name, cutoff_time, reminder_minutes_before, reminder_sent_at, status, menu_items(id, item_name, price, category)";
 
 export async function listMenus(since?: string): Promise<Menu[]> {
   let query = supabase.from("menus").select(MENU_SELECT).order("menu_date", { ascending: false });

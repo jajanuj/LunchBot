@@ -22,7 +22,6 @@ const SUGAR_LEVELS = ["全糖", "少糖", "半糖", "微糖", "無糖"] as const
 
 type Stage =
   | "initializing"
-  | "need-line-app"
   | "dev-identity-prompt"
   | "select-name"
   | "ordering"
@@ -129,12 +128,15 @@ export default function OrderApp() {
         }
       }
 
-      if (liff.isInClient()) {
-        liff.login();
+      // 未登入：開發模式顯示身分模擬入口，正式環境呼叫 liff.login()。
+      // liff.login() 在 LINE App 內開啟原生授權，在一般瀏覽器（含電腦版 LINE 跳出的視窗）
+      // 則跳轉至 LINE OAuth 網頁，登入後自動回到點餐頁，menuId 參數由 LIFF SDK 保留。
+      if (ALLOW_DEV_IDENTITY_OVERRIDE) {
+        setStage("dev-identity-prompt");
         return;
       }
 
-      setStage(ALLOW_DEV_IDENTITY_OVERRIDE ? "dev-identity-prompt" : "need-line-app");
+      liff.login();
     }
 
     init();
@@ -269,14 +271,6 @@ export default function OrderApp() {
 
   if (stage === "error") {
     return <CenteredMessage>⚠️ {errorMessage}</CenteredMessage>;
-  }
-
-  if (stage === "need-line-app") {
-    return (
-      <CenteredMessage>
-        請在 LINE App 中開啟此頁面（點擊群組通知裡的「我要點餐」按鈕）。
-      </CenteredMessage>
-    );
   }
 
   if (stage === "dev-identity-prompt") {
