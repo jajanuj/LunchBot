@@ -14,15 +14,16 @@ export default function TemplatesClient({
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const allIds = templates.map((t) => t.id);
-  const allSelected = allIds.length > 0 && allIds.every((id) => selected.has(id));
+  const allSelected = templates.length > 0 && selected.size === templates.length;
+  const someSelected = selected.size > 0 && selected.size < templates.length;
 
   function toggleAll() {
-    setSelected(allSelected ? new Set() : new Set(allIds));
+    setSelected(allSelected ? new Set() : new Set(templates.map((t) => t.id)));
   }
 
-  function toggleOne(id: string) {
+  function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
@@ -30,39 +31,42 @@ export default function TemplatesClient({
     });
   }
 
-  function handleSingleDelete(id: string, storeName: string) {
-    if (!confirm(`確定刪除樣板「${storeName}」？`)) return;
+  function doDelete(ids: string[], confirmMsg: string, isSingle = false) {
+    if (!confirm(confirmMsg)) return;
+    setDeleteError(null);
     startTransition(async () => {
       const fd = new FormData();
-      fd.set("id", id);
-      const result = await deleteTemplateAction(fd);
-      if (result.error) {
-        alert(`刪除失敗：${result.error}`);
+      if (isSingle) {
+        fd.set("id", ids[0]);
+        const result = await deleteTemplateAction(fd);
+        if (result.error) {
+          setDeleteError(`刪除失敗：${result.error}`);
+        } else {
+          setSelected((prev) => { const next = new Set(prev); next.delete(ids[0]); return next; });
+          router.refresh();
+        }
       } else {
-        setSelected((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
-        router.refresh();
+        ids.forEach((id) => fd.append("ids", id));
+        const result = await batchDeleteTemplatesAction(fd);
+        if (result.error) {
+          setDeleteError(`刪除失敗：${result.error}`);
+        } else {
+          setSelected(new Set());
+          router.refresh();
+        }
       }
     });
   }
 
   function handleBatchDelete() {
-    if (selected.size === 0) return;
-    if (!confirm(`確定刪除選取的 ${selected.size} 個樣板？`)) return;
-    startTransition(async () => {
-      const fd = new FormData();
-      selected.forEach((id) => fd.append("ids", id));
-      const result = await batchDeleteTemplatesAction(fd);
-      if (result.error) {
-        alert(`批次刪除失敗：${result.error}`);
-      } else {
-        setSelected(new Set());
-        router.refresh();
-      }
-    });
+    doDelete(
+      Array.from(selected),
+      `確定要刪除選取的 ${selected.size} 個樣板？此操作無法復原。`
+    );
+  }
+
+  function handleSingleDelete(id: string, storeName: string) {
+    doDelete([id], `確定要刪除樣板「${storeName}」？此操作無法復原。`, true);
   }
 
   if (templates.length === 0) {
@@ -74,20 +78,30 @@ export default function TemplatesClient({
   }
 
   return (
-    <div>
+    <>
+      {deleteError && (
+        <p role="alert" className="mb-3 text-sm text-red-600">
+          ⚠️ {deleteError}
+        </p>
+      )}
+
       {selected.size > 0 && (
         <div className="mb-3 flex items-center gap-3">
-          <span className="text-sm text-gray-600 dark:text-gray-300">
-            已選取 {selected.size} 個
-          </span>
           <button
             id="batch-delete-templates-submit"
             type="button"
-            disabled={isPending}
             onClick={handleBatchDelete}
-            className="text-sm text-red-600 underline disabled:opacity-50"
+            disabled={isPending}
+            className="bg-red-600 text-white rounded px-3 py-1.5 text-sm disabled:opacity-50"
           >
-            {isPending ? "刪除中..." : "批次刪除"}
+            {isPending ? "刪除中..." : `刪除選取（${selected.size} 個）`}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelected(new Set())}
+            className="text-sm text-gray-500 dark:text-gray-400 underline"
+          >
+            取消選取
           </button>
         </div>
       )}
@@ -100,9 +114,10 @@ export default function TemplatesClient({
                 type="checkbox"
                 id="select-all-templates"
                 checked={allSelected}
+                ref={(el) => { if (el) el.indeterminate = someSelected; }}
                 onChange={toggleAll}
-                className="cursor-pointer"
                 aria-label="全選"
+                className="cursor-pointer"
               />
             </th>
             <th className="py-2 pr-4">店家名稱</th>
@@ -118,7 +133,7 @@ export default function TemplatesClient({
                 <input
                   type="checkbox"
                   checked={selected.has(tmpl.id)}
-                  onChange={() => toggleOne(tmpl.id)}
+                  onChange={() => toggle(tmpl.id)}
                   className="cursor-pointer"
                   aria-label={`選取 ${tmpl.storeName}`}
                 />
@@ -131,10 +146,7 @@ export default function TemplatesClient({
                   : "-"}
               </td>
               <td className="py-2 pr-4 flex gap-3">
-                <Link
-                  href={`/admin/templates/${tmpl.id}`}
-                  className="text-sm underline"
-                >
+                <Link href={`/admin/templates/${tmpl.id}`} className="text-sm underline">
                   編輯
                 </Link>
                 <button
@@ -150,6 +162,6 @@ export default function TemplatesClient({
           ))}
         </tbody>
       </table>
-    </div>
+    </>
   );
 }
