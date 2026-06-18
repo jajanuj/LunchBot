@@ -27,6 +27,9 @@ export default async function AdminLayout({
           <Link href="/admin/templates" className="underline">
             歷史樣板
           </Link>
+          <Link href="/admin/payroll" className="underline">
+            薪資扣款
+          </Link>
         </nav>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-600 dark:text-gray-300">{user.displayName}</span>
