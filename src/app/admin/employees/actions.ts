@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { verifySession } from "@/lib/auth/dal";
-import { createEmployee, createEmployeesBulk, deleteEmployee } from "@/lib/data/employees";
+import { createEmployee, createEmployeesBulk, deleteEmployee, deleteEmployeesBatch } from "@/lib/data/employees";
 
 export type CreateEmployeeActionState = { error?: string } | undefined;
 
@@ -54,4 +54,22 @@ export async function deleteEmployeeAction(formData: FormData): Promise<void> {
   }
 
   revalidatePath("/admin/employees");
+}
+
+export async function batchDeleteEmployeesAction(
+  formData: FormData
+): Promise<{ error?: string } | undefined> {
+  await verifySession();
+
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  if (ids.length === 0) return { error: "請至少選取一筆員工" };
+
+  try {
+    await deleteEmployeesBatch(ids);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  revalidatePath("/admin/employees");
+  return undefined;
 }
