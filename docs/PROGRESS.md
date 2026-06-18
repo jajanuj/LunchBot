@@ -46,6 +46,16 @@
     - `batchDeleteMenusAction`：回傳 `{ error? }` 取代 `redirect()`，支援 Client Component 的 `useTransition` 呼叫
     - Supabase migration `0004_cascade_delete_on_menus.sql`：`orders.menu_id` 與 `order_items.menu_item_id` 加 `ON DELETE CASCADE`（**⚠️ 需手動在 Supabase Dashboard SQL Editor 執行**）
     - LIFF 點餐頁 menuId 改為 client 端讀取：移除 server 端 `searchParams.menuId` 判斷（會在 LIFF 處理 `liff.state` 前攔截），改為 `page.tsx` 直接渲染 `<OrderApp />`，`liff.init()` 完成後從 `window.location.search` 讀取 menuId
+  - **LIFF 點餐頁 UI 全面改版（2026-06-18）：**
+    - 手機版兩欄排列品項（`grid-cols-2`）
+    - 固定頂部顯示總金額 + 送出/取消按鈕（`sticky top-0`），不用滾到頁底操作
+    - 數量從 number input 改為 +/− stepper 按鈕（`data-qty-plus` / `data-qty-minus` / `data-qty-display`）
+    - Supabase migration `0005_menu_item_category.sql`：品項加 `category` 欄位（已套用）
+    - Supabase migration `0006_menu_type.sql`：菜單加 `menu_type` 欄位（食物店/飲料店）（已套用）
+    - 菜單層級類型設定：新增菜單時選「🍱 食物店」或「🥤 飲料店」，LIFF 點餐頁依此統一決定是否顯示冰量/糖量選鈕，不再每個品項個別設定
+    - 飲料類菜單：所有品項顯示冰量（熱/正常冰/少冰/微冰/去冰）+ 糖量（全糖/少糖/半糖/微糖/無糖）pill 選鈕，另保留備註欄
+    - 食物類菜單（或不指定）：品項只顯示備註欄
+    - 電腦版 LINE 登入問題修正：`liff.login({ redirectUri: window.location.href })` 確保 OAuth 登入後跳回含 menuId 的原始頁面，menuId 不再遺失
   - `npm run build` / `npm run lint` / `npm run test:e2e`（共 43 個情境）皆通過
 
 - 🔄 **進行中**
