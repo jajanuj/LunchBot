@@ -9,12 +9,12 @@ type TemplateOption = {
   items: { itemName: string; price: number }[];
 };
 
-type ItemRow = { key: string; itemName: string; price: string; category: "" | "food" | "drink" };
+type ItemRow = { key: string; itemName: string; price: string };
 
 type AiStatus = "idle" | "loading" | "done" | "error";
 
 function emptyRow(): ItemRow {
-  return { key: crypto.randomUUID(), itemName: "", price: "", category: "" };
+  return { key: crypto.randomUUID(), itemName: "", price: "" };
 }
 
 function todayStr() {
@@ -29,6 +29,7 @@ function todayStr() {
 export default function MenuForm({ templates }: { templates: TemplateOption[] }) {
   const [state, formAction, pending] = useActionState(createMenuAction, undefined);
   const [storeName, setStoreName] = useState("");
+  const [menuType, setMenuType] = useState<"" | "food" | "drink">("");
   const [items, setItems] = useState<ItemRow[]>([emptyRow()]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
 
@@ -52,12 +53,11 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
         key: crypto.randomUUID(),
         itemName: i.itemName,
         price: String(i.price),
-        category: "" as "" | "food" | "drink",
       }))
     );
   }
 
-  function updateItem(key: string, field: "itemName" | "price" | "category", value: string) {
+  function updateItem(key: string, field: "itemName" | "price", value: string) {
     setItems((prev) => prev.map((row) => (row.key === key ? { ...row, [field]: value } : row)));
   }
 
@@ -116,7 +116,6 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
           key: crypto.randomUUID(),
           itemName: i.itemName,
           price: String(i.price),
-          category: "" as "" | "food" | "drink",
         }))
       );
       setAiPreviewStoreName(data.storeName ?? null);
@@ -296,24 +295,42 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
         </div>
       </div>
 
-      <div className="flex flex-col gap-1 max-w-xs">
-        <label htmlFor="reminderMinutesBefore" className="text-sm font-medium">
-          截止前提醒推播（選填，分鐘）
-        </label>
-        <input
-          id="reminderMinutesBefore"
-          name="reminderMinutesBefore"
-          type="number"
-          min={0}
-          placeholder="例如 30（留空表示不提醒）"
-          className="border rounded px-3 py-2"
-        />
+      <div className="flex gap-4 flex-wrap">
+        <div className="flex flex-col gap-1 flex-1 min-w-40">
+          <label htmlFor="menuType" className="text-sm font-medium">
+            菜單類型（選填）
+          </label>
+          <select
+            id="menuType"
+            name="menuType"
+            value={menuType}
+            onChange={(e) => setMenuType(e.target.value as "" | "food" | "drink")}
+            className="border rounded px-3 py-2 bg-white dark:bg-gray-800 dark:text-white"
+          >
+            <option value="">不指定（僅顯示備註欄）</option>
+            <option value="food">🍱 食物店（備註欄）</option>
+            <option value="drink">🥤 飲料店（冰量、糖量選鈕）</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1 flex-1 min-w-40">
+          <label htmlFor="reminderMinutesBefore" className="text-sm font-medium">
+            截止前提醒推播（選填，分鐘）
+          </label>
+          <input
+            id="reminderMinutesBefore"
+            name="reminderMinutesBefore"
+            type="number"
+            min={0}
+            placeholder="例如 30（留空表示不提醒）"
+            className="border rounded px-3 py-2"
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium">品項與價格</span>
         {items.map((row, index) => (
-          <div key={row.key} className="flex gap-2 items-center flex-wrap">
+          <div key={row.key} className="flex gap-2 items-center">
             <input
               name="itemName"
               type="text"
@@ -335,17 +352,6 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
               className="border rounded px-3 py-2 w-24"
               aria-label={`價格-${index + 1}`}
             />
-            <select
-              name="itemCategory"
-              value={row.category}
-              onChange={(e) => updateItem(row.key, "category", e.target.value)}
-              className="border rounded px-2 py-2 text-sm bg-white dark:bg-gray-800 dark:text-white"
-              aria-label={`類別-${index + 1}`}
-            >
-              <option value="">不指定</option>
-              <option value="food">🍱 食物</option>
-              <option value="drink">🥤 飲料</option>
-            </select>
             <button
               type="button"
               onClick={() => removeRow(row.key)}

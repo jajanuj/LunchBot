@@ -1,6 +1,7 @@
 import { supabase } from "../supabase.ts";
 
 export type MenuItemCategory = "food" | "drink";
+export type MenuType = "food" | "drink";
 
 export type MenuItemRecord = {
   id: string;
@@ -20,6 +21,7 @@ export type Menu = {
   reminderMinutesBefore: number | null;
   reminderSentAt: string | null;
   status: MenuStatus;
+  menuType: MenuType | null;
   items: MenuItemRecord[];
 };
 
@@ -31,6 +33,7 @@ export type CreateMenuInput = {
   storeName: string;
   cutoffTime: string;
   reminderMinutesBefore?: number | null;
+  menuType?: MenuType | null;
   items: MenuItemInput[];
 };
 
@@ -43,6 +46,7 @@ type MenuRow = {
   reminder_minutes_before: number | null;
   reminder_sent_at: string | null;
   status: string;
+  menu_type: string | null;
   menu_items: { id: string; item_name: string; price: number; category: string | null }[];
 };
 
@@ -56,6 +60,7 @@ function toMenu(row: MenuRow): Menu {
     reminderMinutesBefore: row.reminder_minutes_before,
     reminderSentAt: row.reminder_sent_at,
     status: row.status as MenuStatus,
+    menuType: (row.menu_type ?? null) as MenuType | null,
     items: (row.menu_items ?? []).map((i) => ({
       id: i.id,
       itemName: i.item_name,
@@ -65,7 +70,8 @@ function toMenu(row: MenuRow): Menu {
   };
 }
 
-const MENU_SELECT = "id, menu_date, session_name, store_name, cutoff_time, reminder_minutes_before, reminder_sent_at, status, menu_items(id, item_name, price, category)";
+// menu_type 需要 migration 0006 套用後才有此欄位
+const MENU_SELECT = "id, menu_date, session_name, store_name, cutoff_time, reminder_minutes_before, reminder_sent_at, status, menu_type, menu_items(id, item_name, price, category)";
 
 export async function listMenus(since?: string): Promise<Menu[]> {
   let query = supabase.from("menus").select(MENU_SELECT).order("menu_date", { ascending: false });
@@ -128,6 +134,7 @@ export async function createMenu(input: CreateMenuInput): Promise<CreateMenuResu
       cutoff_time: cutoffTimeISO,
       reminder_minutes_before: reminderMinutesBefore,
       status: "open",
+      ...(input.menuType ? { menu_type: input.menuType } : {}),
     })
     .select("id")
     .single();
@@ -146,7 +153,6 @@ export async function createMenu(input: CreateMenuInput): Promise<CreateMenuResu
       menu_id: menuId,
       item_name: i.itemName.trim(),
       price: Math.round(i.price),
-      // 只有 migration 0005 套用後才有 category 欄位；不送 null 避免欄位不存在時 422 錯誤
       ...(i.category ? { category: i.category } : {}),
     }))
   );

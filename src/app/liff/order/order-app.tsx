@@ -136,7 +136,8 @@ export default function OrderApp() {
         return;
       }
 
-      liff.login();
+      // 傳入 redirectUri 確保 LINE OAuth 登入後能跳回含 menuId 的當前頁面
+      liff.login({ redirectUri: window.location.href });
     }
 
     init();
@@ -187,12 +188,12 @@ export default function OrderApp() {
       setExistingOrder(loadedOrder);
 
       const initial: Record<string, ItemState> = {};
+      const isDrinkMenu = loadedMenu.menuType === "drink";
       for (const item of loadedMenu.items) {
         const existingItem = loadedOrder?.items.find((i) => i.menuItemId === item.id);
-        const isDrink = item.category === "drink";
         const { iceLevel, sugarLevel, notes } = parseStoredNotes(
           existingItem?.customNotes ?? "",
-          isDrink
+          isDrinkMenu
         );
         initial[item.id] = {
           quantity: existingItem?.quantity ?? 0,
@@ -231,17 +232,14 @@ export default function OrderApp() {
 
   async function handleSubmitOrder() {
     if (!employee || !menuId || !menu) return;
+    const isDrinkMenu = menu.menuType === "drink";
     const items = Object.entries(itemsState)
       .filter(([, state]) => state.quantity > 0)
-      .map(([menuItemId, state]) => {
-        const menuItem = menu.items.find((i) => i.id === menuItemId);
-        const isDrink = menuItem?.category === "drink";
-        return {
-          menuItemId,
-          quantity: state.quantity,
-          customNotes: buildCustomNotes(state, isDrink),
-        };
-      });
+      .map(([menuItemId, state]) => ({
+        menuItemId,
+        quantity: state.quantity,
+        customNotes: buildCustomNotes(state, isDrinkMenu),
+      }));
 
     setPending(true);
     setSubmitMessage(null);
@@ -379,6 +377,7 @@ export default function OrderApp() {
           <ItemCard
             key={item.id}
             item={item}
+            isDrink={menu.menuType === "drink"}
             state={
               itemsState[item.id] ?? {
                 quantity: 0,
@@ -402,16 +401,17 @@ export default function OrderApp() {
 
 function ItemCard({
   item,
+  isDrink,
   state,
   onChange,
   canOrder,
 }: {
   item: MenuItemRecord;
+  isDrink: boolean;
   state: ItemState;
   onChange: (s: ItemState) => void;
   canOrder: boolean;
 }) {
-  const isDrink = item.category === "drink";
 
   return (
     <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl p-3 flex flex-col gap-2">

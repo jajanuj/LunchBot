@@ -82,6 +82,11 @@ async function main() {
       await nameInput.type("測試便當");
       await priceInput.type("80");
       await Promise.all([adminPage.click("#create-menu-submit"), adminPage.waitForNetworkIdle()]);
+      // 確認表單成功提交（否則 menuId 會是 "new"）
+      if (adminPage.url() !== `${BASE_URL}/admin/menus`) {
+        const errText = await adminPage.$eval("[role='alert']", (el) => el.textContent).catch(() => "(無 alert)");
+        throw new Error(`建立測試菜單失敗，仍在 ${adminPage.url()}，錯誤：${errText}`);
+      }
 
       // 進入詳細頁取得 menuId（依店家名稱找，不用 rows[0] 以免選到其他測試留下的菜單）
       const menuLinkHandle = await adminPage.evaluateHandle((storeName) => {
@@ -89,7 +94,13 @@ async function main() {
         const row = rows.find((r) => r.textContent.includes(storeName));
         return row ? row.querySelector("a") : null;
       }, liffStoreName);
-      await Promise.all([menuLinkHandle.asElement().click(), adminPage.waitForNetworkIdle()]);
+      const menuDetailLink = menuLinkHandle.asElement();
+      assert(menuDetailLink, `應找到「${liffStoreName}」的查看連結`);
+      // waitForNavigation 比 waitForNetworkIdle 更可靠：確保頁面跳轉事件完成後再讀 URL
+      await Promise.all([
+        adminPage.waitForNavigation({ waitUntil: "networkidle0" }),
+        menuDetailLink.click(),
+      ]);
       const menuId = adminPage.url().split("/").pop();
       console.log("[e2e:liff-order] 測試用 menuId =", menuId);
       // adminPage 的任務完成（登入 + 建立員工 + 建立菜單），關閉以避免後續 idle 導致 CDP timeout

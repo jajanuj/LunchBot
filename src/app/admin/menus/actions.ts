@@ -23,20 +23,17 @@ export async function createMenuAction(
   const storeName = String(formData.get("storeName") ?? "");
   const cutoffTime = String(formData.get("cutoffTime") ?? "");
   const reminderMinutesBeforeRaw = String(formData.get("reminderMinutesBefore") ?? "");
+  const menuTypeRaw = String(formData.get("menuType") ?? "");
+  const menuType = (menuTypeRaw === "food" || menuTypeRaw === "drink") ? menuTypeRaw : null;
   const itemNames = formData.getAll("itemName").map(String);
   const itemPrices = formData.getAll("itemPrice").map(String);
-  const itemCategories = formData.getAll("itemCategory").map(String);
   const saveAsTemplate = formData.get("saveAsTemplate") === "on";
   const aiImportId = String(formData.get("aiImportId") ?? "");
 
-  const items = itemNames.map((name, i) => {
-    const cat = itemCategories[i];
-    return {
-      itemName: name,
-      price: Number(itemPrices[i]),
-      category: (cat === "food" || cat === "drink") ? cat : null,
-    } as import("@/lib/data/menus").MenuItemInput;
-  });
+  const items = itemNames.map((name, i) => ({
+    itemName: name,
+    price: Number(itemPrices[i]),
+  } as import("@/lib/data/menus").MenuItemInput));
 
   const result = await createMenu({
     menuDate,
@@ -44,6 +41,7 @@ export async function createMenuAction(
     storeName,
     cutoffTime,
     reminderMinutesBefore: reminderMinutesBeforeRaw ? Number(reminderMinutesBeforeRaw) : null,
+    menuType,
     items,
   });
 
