@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import liff from "@line/liff";
 import type { Employee } from "@/lib/data/employees";
-import type { Menu } from "@/lib/data/menus";
+import type { Menu, MenuItemRecord } from "@/lib/data/menus";
 import type { Order } from "@/lib/data/orders";
 import {
   getEmployeeByLineUserIdAction,
@@ -15,10 +15,10 @@ import {
   cancelOrderAction,
 } from "./actions";
 
-// 是否允許「開發測試模式」身分模擬入口。Next.js 在 production build 時會把
-// process.env.NODE_ENV 直接替換成字面值 "production"，這個分支在正式環境
-// 會被打包工具判定為永遠不會執行而整段移除，不會出現在上線的 JS 裡。
 const ALLOW_DEV_IDENTITY_OVERRIDE = process.env.NODE_ENV !== "production";
+
+const ICE_LEVELS = ["熱", "正常冰", "少冰", "微冰", "去冰"] as const;
+const SUGAR_LEVELS = ["全糖", "少糖", "半糖", "微糖", "無糖"] as const;
 
 type Stage =
   | "initializing"
@@ -28,7 +28,42 @@ type Stage =
   | "ordering"
   | "error";
 
-type ItemState = { quantity: number; notes: string };
+type ItemState = {
+  quantity: number;
+  notes: string;
+  iceLevel: string;
+  sugarLevel: string;
+};
+
+// 從已儲存的 customNotes 字串反解出冰量/糖量/其他備註
+function parseStoredNotes(
+  customNotes: string,
+  isDrink: boolean
+): { iceLevel: string; sugarLevel: string; notes: string } {
+  if (!isDrink || !customNotes) {
+    return { iceLevel: "", sugarLevel: "", notes: customNotes };
+  }
+  const parts = customNotes.split(" / ");
+  let iceLevel = "";
+  let sugarLevel = "";
+  const remaining: string[] = [];
+  for (const p of parts) {
+    if ((ICE_LEVELS as readonly string[]).includes(p)) iceLevel = p;
+    else if ((SUGAR_LEVELS as readonly string[]).includes(p)) sugarLevel = p;
+    else remaining.push(p);
+  }
+  return { iceLevel, sugarLevel, notes: remaining.join(" / ") };
+}
+
+// 把冰量/糖量/備註合併成 customNotes 字串存入訂單
+function buildCustomNotes(state: ItemState, isDrink: boolean): string {
+  if (!isDrink) return state.notes;
+  const parts: string[] = [];
+  if (state.iceLevel) parts.push(state.iceLevel);
+  if (state.sugarLevel) parts.push(state.sugarLevel);
+  if (state.notes.trim()) parts.push(state.notes.trim());
+  return parts.join(" / ");
+}
 
 // menuId 不接受 prop，改在 liff.init() 完成後從 window.location.search 讀取。
 // 原因：LINE LIFF 透過 liff.state 傳遞的 query params 是在 init() 之後
@@ -50,8 +85,7 @@ export default function OrderApp() {
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  // 1. 初始化 LIFF；init() 完成後 LIFF 已處理 liff.state，
-  //    此時 window.location.search 才會包含 menuId。
+  // 1. 初始化 LIFF
   useEffect(() => {
     let cancelled = false;
 
@@ -73,7 +107,6 @@ export default function OrderApp() {
 
       if (cancelled) return;
 
-      // init() 完成後才讀 menuId（liff.state 已更新至 URL）
       const extractedMenuId = new URLSearchParams(window.location.search).get("menuId");
       if (!extractedMenuId) {
         setErrorMessage("缺少 menuId 參數，請從 LINE 推播訊息的按鈕進入此頁面。");
@@ -96,24 +129,19 @@ export default function OrderApp() {
         }
       }
 
-      // 未登入：在 LINE App 內應該不會發生，但保險起見處理一下
       if (liff.isInClient()) {
         liff.login();
         return;
       }
 
-      // 在一般瀏覽器（不在 LINE App 裡）又沒登入：
-      // 開發測試環境提供身分模擬入口，正式環境只顯示提示訊息
       setStage(ALLOW_DEV_IDENTITY_OVERRIDE ? "dev-identity-prompt" : "need-line-app");
     }
 
     init();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  // 2. 有身分後，查這個 lineUserId 對應哪個員工
+  // 2. 有身分後，查對應員工
   useEffect(() => {
     if (!lineUserId) return;
     let cancelled = false;
@@ -132,9 +160,7 @@ export default function OrderApp() {
     }
 
     resolveEmployee();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [lineUserId]);
 
   // 3. 員工確定後，載入菜單與既有訂單
@@ -158,22 +184,27 @@ export default function OrderApp() {
       setMenu(loadedMenu);
       setExistingOrder(loadedOrder);
 
-      const initialItemsState: Record<string, ItemState> = {};
+      const initial: Record<string, ItemState> = {};
       for (const item of loadedMenu.items) {
         const existingItem = loadedOrder?.items.find((i) => i.menuItemId === item.id);
-        initialItemsState[item.id] = {
+        const isDrink = item.category === "drink";
+        const { iceLevel, sugarLevel, notes } = parseStoredNotes(
+          existingItem?.customNotes ?? "",
+          isDrink
+        );
+        initial[item.id] = {
           quantity: existingItem?.quantity ?? 0,
-          notes: existingItem?.customNotes ?? "",
+          notes,
+          iceLevel,
+          sugarLevel,
         };
       }
-      setItemsState(initialItemsState);
+      setItemsState(initial);
       setStage("ordering");
     }
 
     loadMenuAndOrder();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [employee, menuId]);
 
   const totalAmount = useMemo(() => {
@@ -197,14 +228,18 @@ export default function OrderApp() {
   }
 
   async function handleSubmitOrder() {
-    if (!employee || !menuId) return;
+    if (!employee || !menuId || !menu) return;
     const items = Object.entries(itemsState)
       .filter(([, state]) => state.quantity > 0)
-      .map(([menuItemId, state]) => ({
-        menuItemId,
-        quantity: state.quantity,
-        customNotes: state.notes,
-      }));
+      .map(([menuItemId, state]) => {
+        const menuItem = menu.items.find((i) => i.id === menuItemId);
+        const isDrink = menuItem?.category === "drink";
+        return {
+          menuItemId,
+          quantity: state.quantity,
+          customNotes: buildCustomNotes(state, isDrink),
+        };
+      });
 
     setPending(true);
     setSubmitMessage(null);
@@ -237,7 +272,11 @@ export default function OrderApp() {
   }
 
   if (stage === "need-line-app") {
-    return <CenteredMessage>請在 LINE App 中開啟此頁面（點擊群組通知裡的「我要點餐」按鈕）。</CenteredMessage>;
+    return (
+      <CenteredMessage>
+        請在 LINE App 中開啟此頁面（點擊群組通知裡的「我要點餐」按鈕）。
+      </CenteredMessage>
+    );
   }
 
   if (stage === "dev-identity-prompt") {
@@ -274,7 +313,9 @@ export default function OrderApp() {
             </li>
           ))}
           {unboundEmployees.length === 0 && (
-            <li className="text-sm text-gray-500">目前沒有尚未綁定的員工，請聯絡助理協助處理。</li>
+            <li className="text-sm text-gray-500">
+              目前沒有尚未綁定的員工，請聯絡助理協助處理。
+            </li>
           )}
         </ul>
       </main>
@@ -284,99 +325,213 @@ export default function OrderApp() {
   // stage === "ordering"
   if (!menu) return <CenteredMessage>載入菜單中...</CenteredMessage>;
 
-  const isCancelled = existingOrder?.status === "cancelled";
   const canOrder = menu.status === "open";
 
   return (
-    <main className="min-h-screen flex flex-col gap-4 p-6 max-w-md mx-auto">
-      <h1 className="text-lg font-bold">
-        {menu.sessionName ?? "點餐"}｜{menu.storeName}
-      </h1>
-      <p className="text-sm text-gray-600">
-        {canOrder ? "收單中" : "已截止收單"}
-        {existingOrder && existingOrder.status === "pending" && "　|　您已送出訂單，可修改"}
-        {isCancelled && "　|　您已取消這張訂單"}
-      </p>
-
-      <div className="flex flex-col gap-3">
-        {menu.items.map((item) => (
-          <div key={item.id} className="border rounded p-3 flex flex-col gap-2">
-            <div className="flex justify-between">
-              <span>{item.itemName}</span>
-              <span>${item.price}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600" htmlFor={`qty-${item.id}`}>
-                數量
-              </label>
-              <input
-                id={`qty-${item.id}`}
-                type="number"
-                min={0}
-                disabled={!canOrder}
-                value={itemsState[item.id]?.quantity ?? 0}
-                onChange={(e) =>
-                  setItemsState((prev) => ({
-                    ...prev,
-                    [item.id]: { ...prev[item.id], quantity: Number(e.target.value) },
-                  }))
-                }
-                className="border rounded px-2 py-1 w-20"
-              />
-            </div>
-            <input
-              type="text"
-              placeholder="備註（如：微糖微冰）"
-              disabled={!canOrder}
-              value={itemsState[item.id]?.notes ?? ""}
-              onChange={(e) =>
-                setItemsState((prev) => ({
-                  ...prev,
-                  [item.id]: { ...prev[item.id], notes: e.target.value },
-                }))
-              }
-              className="border rounded px-2 py-1"
-            />
+    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+      {/* 固定頂部：菜單名稱 + 總金額 + 操作按鈕 */}
+      <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-bold text-sm truncate">
+              {menu.sessionName ?? "點餐"}｜{menu.storeName}
+            </p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {canOrder ? "收單中" : "已截止收單"}
+              {existingOrder?.status === "pending" && "　｜　已送出，可修改"}
+              {existingOrder?.status === "cancelled" && "　｜　已取消"}
+            </p>
           </div>
-        ))}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-sm font-bold">${totalAmount}</span>
+            {canOrder && existingOrder?.status === "pending" && (
+              <button
+                id="cancel-order-button"
+                type="button"
+                disabled={pending}
+                onClick={handleCancelOrder}
+                className="text-sm text-red-500 underline disabled:opacity-50"
+              >
+                取消
+              </button>
+            )}
+            {canOrder && (
+              <button
+                id="submit-order-button"
+                type="button"
+                disabled={pending}
+                onClick={handleSubmitOrder}
+                className="bg-[#06C755] text-white rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-50"
+              >
+                {pending
+                  ? "..."
+                  : existingOrder?.status === "pending"
+                  ? "更新"
+                  : "送出"}
+              </button>
+            )}
+          </div>
+        </div>
+        {submitMessage && (
+          <p className="text-xs mt-1 text-center text-gray-600 dark:text-gray-300">
+            {submitMessage}
+          </p>
+        )}
       </div>
 
-      <p className="font-bold">總金額：${totalAmount}</p>
-
-      {submitMessage && <p>{submitMessage}</p>}
-
-      {canOrder && (
-        <div className="flex gap-3">
-          <button
-            id="submit-order-button"
-            type="button"
-            disabled={pending}
-            onClick={handleSubmitOrder}
-            className="bg-[#06C755] text-white rounded px-4 py-2 disabled:opacity-50"
-          >
-            {pending ? "送出中..." : existingOrder?.status === "pending" ? "更新訂單" : "送出訂單"}
-          </button>
-          {existingOrder?.status === "pending" && (
-            <button
-              id="cancel-order-button"
-              type="button"
-              disabled={pending}
-              onClick={handleCancelOrder}
-              className="text-sm text-red-600 underline disabled:opacity-50"
-            >
-              取消訂單
-            </button>
-          )}
-        </div>
-      )}
-    </main>
+      {/* 品項兩欄排列 */}
+      <div className="grid grid-cols-2 gap-3 p-4">
+        {menu.items.map((item) => (
+          <ItemCard
+            key={item.id}
+            item={item}
+            state={
+              itemsState[item.id] ?? {
+                quantity: 0,
+                notes: "",
+                iceLevel: "",
+                sugarLevel: "",
+              }
+            }
+            onChange={(s) =>
+              setItemsState((prev) => ({ ...prev, [item.id]: s }))
+            }
+            canOrder={canOrder}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
+
+// ── 品項卡片 ──────────────────────────────────────────────
+
+function ItemCard({
+  item,
+  state,
+  onChange,
+  canOrder,
+}: {
+  item: MenuItemRecord;
+  state: ItemState;
+  onChange: (s: ItemState) => void;
+  canOrder: boolean;
+}) {
+  const isDrink = item.category === "drink";
+
+  return (
+    <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl p-3 flex flex-col gap-2">
+      {/* 品名與價格 */}
+      <div className="flex justify-between items-start gap-1">
+        <span className="font-medium text-sm leading-snug">{item.itemName}</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0 mt-0.5">
+          ${item.price}
+        </span>
+      </div>
+
+      {/* 數量 stepper */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          data-qty-minus={item.id}
+          disabled={!canOrder || state.quantity === 0}
+          onClick={() => onChange({ ...state, quantity: Math.max(0, state.quantity - 1) })}
+          className="w-8 h-8 border dark:border-gray-600 rounded-lg text-lg leading-none flex items-center justify-center disabled:opacity-30 shrink-0 active:bg-gray-100 dark:active:bg-gray-700"
+        >
+          −
+        </button>
+        <span
+          data-qty-display={item.id}
+          className="text-sm font-medium w-6 text-center tabular-nums"
+        >
+          {state.quantity}
+        </span>
+        <button
+          type="button"
+          data-qty-plus={item.id}
+          disabled={!canOrder}
+          onClick={() => onChange({ ...state, quantity: state.quantity + 1 })}
+          className="w-8 h-8 border dark:border-gray-600 rounded-lg text-lg leading-none flex items-center justify-center disabled:opacity-30 shrink-0 active:bg-gray-100 dark:active:bg-gray-700"
+        >
+          +
+        </button>
+      </div>
+
+      {/* 飲料專屬：冰量 + 糖量 */}
+      {isDrink && (
+        <>
+          <div>
+            <p className="text-xs text-gray-400 mb-1">冰量</p>
+            <div className="flex flex-wrap gap-1">
+              {ICE_LEVELS.map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  disabled={!canOrder}
+                  onClick={() =>
+                    onChange({
+                      ...state,
+                      iceLevel: state.iceLevel === level ? "" : level,
+                    })
+                  }
+                  className={`text-xs px-1.5 py-0.5 rounded-full border transition-colors ${
+                    state.iceLevel === level
+                      ? "bg-sky-500 text-white border-sky-500"
+                      : "border-gray-300 dark:border-gray-600 dark:text-gray-300"
+                  } disabled:opacity-40`}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 mb-1">糖量</p>
+            <div className="flex flex-wrap gap-1">
+              {SUGAR_LEVELS.map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  disabled={!canOrder}
+                  onClick={() =>
+                    onChange({
+                      ...state,
+                      sugarLevel: state.sugarLevel === level ? "" : level,
+                    })
+                  }
+                  className={`text-xs px-1.5 py-0.5 rounded-full border transition-colors ${
+                    state.sugarLevel === level
+                      ? "bg-emerald-500 text-white border-emerald-500"
+                      : "border-gray-300 dark:border-gray-600 dark:text-gray-300"
+                  } disabled:opacity-40`}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 備註（食物 + 飲料都有） */}
+      <input
+        type="text"
+        placeholder="備註"
+        disabled={!canOrder}
+        value={state.notes}
+        onChange={(e) => onChange({ ...state, notes: e.target.value })}
+        className="border dark:border-gray-600 rounded-lg px-2 py-1 text-xs w-full disabled:opacity-50 bg-transparent dark:placeholder-gray-500"
+      />
+    </div>
+  );
+}
+
+// ── 通用 helper components ─────────────────────────────────
 
 function CenteredMessage({ children }: { children: React.ReactNode }) {
   return (
     <main className="min-h-screen flex items-center justify-center p-6 text-center">
-      <p>{children}</p>
+      <p className="text-gray-600 dark:text-gray-300">{children}</p>
     </main>
   );
 }

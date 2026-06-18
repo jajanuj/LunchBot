@@ -9,12 +9,12 @@ type TemplateOption = {
   items: { itemName: string; price: number }[];
 };
 
-type ItemRow = { key: string; itemName: string; price: string };
+type ItemRow = { key: string; itemName: string; price: string; category: "" | "food" | "drink" };
 
 type AiStatus = "idle" | "loading" | "done" | "error";
 
 function emptyRow(): ItemRow {
-  return { key: crypto.randomUUID(), itemName: "", price: "" };
+  return { key: crypto.randomUUID(), itemName: "", price: "", category: "" };
 }
 
 function todayStr() {
@@ -52,11 +52,12 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
         key: crypto.randomUUID(),
         itemName: i.itemName,
         price: String(i.price),
+        category: "" as "" | "food" | "drink",
       }))
     );
   }
 
-  function updateItem(key: string, field: "itemName" | "price", value: string) {
+  function updateItem(key: string, field: "itemName" | "price" | "category", value: string) {
     setItems((prev) => prev.map((row) => (row.key === key ? { ...row, [field]: value } : row)));
   }
 
@@ -115,6 +116,7 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
           key: crypto.randomUUID(),
           itemName: i.itemName,
           price: String(i.price),
+          category: "" as "" | "food" | "drink",
         }))
       );
       setAiPreviewStoreName(data.storeName ?? null);
@@ -311,7 +313,7 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium">品項與價格</span>
         {items.map((row, index) => (
-          <div key={row.key} className="flex gap-2 items-center">
+          <div key={row.key} className="flex gap-2 items-center flex-wrap">
             <input
               name="itemName"
               type="text"
@@ -319,7 +321,7 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
               required
               value={row.itemName}
               onChange={(e) => updateItem(row.key, "itemName", e.target.value)}
-              className="border rounded px-3 py-2 flex-1"
+              className="border rounded px-3 py-2 flex-1 min-w-32"
               aria-label={`品名-${index + 1}`}
             />
             <input
@@ -330,9 +332,20 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
               required
               value={row.price}
               onChange={(e) => updateItem(row.key, "price", e.target.value)}
-              className="border rounded px-3 py-2 w-28"
+              className="border rounded px-3 py-2 w-24"
               aria-label={`價格-${index + 1}`}
             />
+            <select
+              name="itemCategory"
+              value={row.category}
+              onChange={(e) => updateItem(row.key, "category", e.target.value)}
+              className="border rounded px-2 py-2 text-sm bg-white dark:bg-gray-800 dark:text-white"
+              aria-label={`類別-${index + 1}`}
+            >
+              <option value="">不指定</option>
+              <option value="food">🍱 食物</option>
+              <option value="drink">🥤 飲料</option>
+            </select>
             <button
               type="button"
               onClick={() => removeRow(row.key)}

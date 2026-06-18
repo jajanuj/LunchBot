@@ -1,9 +1,12 @@
 import { supabase } from "../supabase.ts";
 
+export type MenuItemCategory = "food" | "drink";
+
 export type MenuItemRecord = {
   id: string;
   itemName: string;
   price: number;
+  category: MenuItemCategory | null;
 };
 
 export type MenuStatus = "open" | "closed" | "cancelled";
@@ -20,7 +23,7 @@ export type Menu = {
   items: MenuItemRecord[];
 };
 
-export type MenuItemInput = { itemName: string; price: number };
+export type MenuItemInput = { itemName: string; price: number; category?: MenuItemCategory | null };
 
 export type CreateMenuInput = {
   menuDate: string;
@@ -40,7 +43,7 @@ type MenuRow = {
   reminder_minutes_before: number | null;
   reminder_sent_at: string | null;
   status: string;
-  menu_items: { id: string; item_name: string; price: number }[];
+  menu_items: { id: string; item_name: string; price: number; category: string | null }[];
 };
 
 function toMenu(row: MenuRow): Menu {
@@ -57,10 +60,12 @@ function toMenu(row: MenuRow): Menu {
       id: i.id,
       itemName: i.item_name,
       price: i.price,
+      category: (i.category ?? null) as MenuItemCategory | null,
     })),
   };
 }
 
+// category 欄位在 migration 0005 套用後才存在，MENU_SELECT 待 migration 套用後再加回
 const MENU_SELECT = "id, menu_date, session_name, store_name, cutoff_time, reminder_minutes_before, reminder_sent_at, status, menu_items(id, item_name, price)";
 
 export async function listMenus(since?: string): Promise<Menu[]> {
@@ -142,6 +147,8 @@ export async function createMenu(input: CreateMenuInput): Promise<CreateMenuResu
       menu_id: menuId,
       item_name: i.itemName.trim(),
       price: Math.round(i.price),
+      // 只有 migration 0005 套用後才有 category 欄位；不送 null 避免欄位不存在時 422 錯誤
+      ...(i.category ? { category: i.category } : {}),
     }))
   );
   if (itemsErr) throw new Error(itemsErr.message);

@@ -120,10 +120,14 @@ async function main() {
       await liffPage.waitForSelector("#submit-order-button");
       console.log("[e2e:liff-order] ✅ 選擇姓名後成功進入點餐頁面");
 
-      // --- 3. 送出訂單 ---
-      const qtyInput = await liffPage.$('input[id^="qty-"]');
-      await qtyInput.click({ clickCount: 3 });
-      await qtyInput.type("2");
+      // --- 3. 送出訂單（點 + 按鈕讓數量變 1）---
+      const plusBtn = await liffPage.$("button[data-qty-plus]");
+      await plusBtn.click();
+      // 等 state 更新後顯示 1
+      await liffPage.waitForFunction(
+        () => document.querySelector("[data-qty-display]")?.textContent?.trim() === "1",
+        { timeout: 5000 }
+      );
       await Promise.all([
         liffPage.click("#submit-order-button"),
         liffPage.waitForNetworkIdle(),
@@ -138,10 +142,13 @@ async function main() {
       await liffPage.type("#dev-line-user-id", TEST_LINE_USER_ID);
       await liffPage.click("#dev-identity-submit");
       await liffPage.waitForSelector("#submit-order-button");
-      const qtyValueAfterReload = await liffPage.$eval('input[id^="qty-"]', (el) => el.value);
-      assert(qtyValueAfterReload === "2", `重新登入後應預填數量 2，實際：${qtyValueAfterReload}`);
+      const qtyValueAfterReload = await liffPage.$eval(
+        "[data-qty-display]",
+        (el) => el.textContent?.trim() ?? ""
+      );
+      assert(qtyValueAfterReload === "1", `重新登入後應預填數量 1，實際：${qtyValueAfterReload}`);
       bodyText = await liffPage.evaluate(() => document.body.innerText);
-      assert(bodyText.includes("您已送出訂單"), "應顯示已送出訂單的狀態提示");
+      assert(bodyText.includes("已送出，可修改"), "應顯示已送出訂單的狀態提示");
       console.log("[e2e:liff-order] ✅ 同一身分重新登入直接進點餐頁，且訂單已預填");
 
       // --- 5. 取消訂單 -> 重新點餐 ---
@@ -180,8 +187,11 @@ async function main() {
       );
       const submitButtonExists = await liffPage.$("#submit-order-button");
       assert(!submitButtonExists, "截止後不應顯示送出按鈕");
-      const qtyDisabled = await liffPage.$eval('input[id^="qty-"]', (el) => el.disabled);
-      assert(qtyDisabled, "截止後數量輸入框應為停用狀態");
+      const plusBtnDisabled = await liffPage.$eval(
+        "button[data-qty-plus]",
+        (el) => el.disabled
+      );
+      assert(plusBtnDisabled, "截止後 + 按鈕應為停用狀態");
       console.log("[e2e:liff-order] ✅ 截止收單後 LIFF 頁面正確鎖定，無法再點餐");
     } finally {
       await browser.close();
