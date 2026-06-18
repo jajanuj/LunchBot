@@ -59,6 +59,12 @@ export async function deleteTemplate(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+export async function deleteTemplatesBatch(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await supabase.from("store_templates").delete().in("id", ids);
+  if (error) throw new Error(error.message);
+}
+
 export async function updateTemplateFull(
   id: string,
   storeName: string,

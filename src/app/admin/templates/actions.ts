@@ -3,14 +3,36 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { verifySession } from "@/lib/auth/dal";
-import { deleteTemplate, updateTemplateFull } from "@/lib/data/storeTemplates";
+import { deleteTemplate, deleteTemplatesBatch, updateTemplateFull } from "@/lib/data/storeTemplates";
 
-export async function deleteTemplateAction(formData: FormData): Promise<void> {
+export async function deleteTemplateAction(
+  formData: FormData
+): Promise<{ error?: string }> {
   await verifySession();
   const id = String(formData.get("id") ?? "");
-  if (id) await deleteTemplate(id);
+  if (!id) return { error: "缺少樣板 ID" };
+  try {
+    await deleteTemplate(id);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
   revalidatePath("/admin/templates");
-  redirect("/admin/templates");
+  return {};
+}
+
+export async function batchDeleteTemplatesAction(
+  formData: FormData
+): Promise<{ error?: string }> {
+  await verifySession();
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  if (ids.length === 0) return { error: "未選取任何樣板" };
+  try {
+    await deleteTemplatesBatch(ids);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  revalidatePath("/admin/templates");
+  return {};
 }
 
 export type UpdateTemplateState = { error?: string } | undefined;
