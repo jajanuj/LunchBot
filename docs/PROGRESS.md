@@ -36,12 +36,23 @@
     - 修改 `src/app/admin/menus/new/menu-form.tsx`：新增「AI 辨識菜單」摺疊區塊（上傳圖片 → 辨識 → 可逐筆編輯/刪除預覽品項 → 套用至表單）
     - 修改 `src/app/admin/menus/actions.ts`：`createMenuAction` 建立菜單後自動將 aiImportId 回填 menu_id 與助理校對後品項至 `menu_ai_imports`
     - 新增 `e2e/ai-menu-import.test.mjs`（port 3118）：以 Puppeteer 截圖產生測試菜單圖片 → 上傳辨識 → 驗證辨識結果 → 套用 → 建立菜單全流程，E2E 測試通過
+  - **WBS 階段三後續功能補強（2026-06-18）：**
+    - LINE 推播錯誤訊息改善：捕捉 `HTTPFetchError.body` 並解析 JSON，顯示 LINE API 回傳的實際原因（如 `Invalid reply token`）
+    - AI 菜單辨識區塊深色模式修正：`bg-gray-100 dark:bg-gray-800 dark:border-gray-600`，辨識成功文字加 `dark:text-green-400`
+    - 菜單新增表單日期自動填入今日：`menuDate` 與 `cutoffTime` 改用 `defaultValue`（避免 E2E 測試 DOM event 失效問題）
+    - 歷史樣板下拉選單深色模式修正：加 `bg-white dark:bg-gray-800 dark:text-white`
+    - 菜單列表加入刪除功能與 30 天分頁（`?all=1` 切換顯示更早紀錄）
+    - 菜單列表加入批次刪除（checkbox 多選 + FormData 傳 ids 陣列）
+    - `batchDeleteMenusAction`：回傳 `{ error? }` 取代 `redirect()`，支援 Client Component 的 `useTransition` 呼叫
+    - Supabase migration `0004_cascade_delete_on_menus.sql`：`orders.menu_id` 與 `order_items.menu_item_id` 加 `ON DELETE CASCADE`（**⚠️ 需手動在 Supabase Dashboard SQL Editor 執行**）
+    - LIFF 點餐頁 menuId 改為 client 端讀取：移除 server 端 `searchParams.menuId` 判斷（會在 LIFF 處理 `liff.state` 前攔截），改為 `page.tsx` 直接渲染 `<OrderApp />`，`liff.init()` 完成後從 `window.location.search` 讀取 menuId
   - `npm run build` / `npm run lint` / `npm run test:e2e`（共 43 個情境）皆通過
 
 - 🔄 **進行中**
   - 無
 
 - ⏳ **待處理**
+  - **⚠️ 需手動執行**：`supabase/migrations/0004_cascade_delete_on_menus.sql` 尚未套用到 Supabase，請到 Supabase Dashboard > SQL Editor 執行，否則刪除有訂單的菜單會出現 FK 約束錯誤
   - **WBS 階段四（結算彙整與薪資扣款）**
     - **4A — 收單後彙整**（下一個要做）：`/admin/menus/[id]` 新增「店家叫貨清單」（品項 × 總數量）+ 「個人對帳清單」（每人 × 金額），含「推播叫貨清單至 LINE 群組」按鈕與「匯出個人對帳清單（CSV）」按鈕；自動結單 cron 同步推播叫貨清單
     - **4B — 月結薪資扣款**：`/admin/payroll` 新頁面，選月份 → 產生 `payroll_deductions` → 匯出 CSV → 標記已匯出；需新增 Supabase migration（`payroll_deductions` 資料表）
