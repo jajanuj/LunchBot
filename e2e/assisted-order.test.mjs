@@ -112,9 +112,11 @@ async function main() {
       assert(occurrences === 1, `訂單列表的 ${EMPLOYEE_A} 應只出現 1 次（upsert 不應變成兩筆），實際出現 ${occurrences} 次`);
       console.log("[e2e:assisted-order] ✅ 修改訂單為 upsert，金額正確更新且沒有重複");
 
-      // 3. 取消該員工訂單
+      // 3. 取消該員工訂單（限縮到 #assisted-orders-table，避免命中個人對帳清單的同名欄位）
       const cancelButtonHandle = await page.evaluateHandle((name) => {
-        const rows = Array.from(document.querySelectorAll("tbody tr"));
+        const table = document.getElementById("assisted-orders-table");
+        if (!table) return null;
+        const rows = Array.from(table.querySelectorAll("tbody tr"));
         const row = rows.find((r) => r.textContent.includes(name));
         return row ? row.querySelector('button[type="submit"]') : null;
       }, EMPLOYEE_A);

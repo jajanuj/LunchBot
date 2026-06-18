@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/auth/dal";
 import { createMenu, closeMenu, deleteMenu, getMenu, listOpenMenusByDate } from "@/lib/data/menus";
 import { upsertTemplate } from "@/lib/data/storeTemplates";
-import { upsertOrder, cancelOrder } from "@/lib/data/orders";
+import { upsertOrder, cancelOrder, listOrdersByMenu } from "@/lib/data/orders";
 import { linkMenuAiImport } from "@/lib/data/menuAiImports";
+import { listEmployees } from "@/lib/data/employees";
 import { buildMenuCarouselMessage } from "@/lib/line/flexMessage";
 import { getLineMessagingClient } from "@/lib/line/client";
 
@@ -175,6 +176,77 @@ export async function assistedCancelOrderAction(formData: FormData): Promise<voi
     await cancelOrder(menuId, employeeId);
   }
   revalidatePath(`/admin/menus/${menuId}`);
+}
+
+export type PushOrderSummaryActionState = { error?: string; success?: boolean } | undefined;
+
+export async function pushOrderSummaryAction(
+  _prevState: PushOrderSummaryActionState,
+  formData: FormData
+): Promise<PushOrderSummaryActionState> {
+  await verifySession();
+
+  const menuId = String(formData.get("menuId") ?? "");
+  const menu = await getMenu(menuId);
+  if (!menu) return { error: "找不到這張菜單" };
+
+  const groupId = process.env.LINE_GROUP_ID;
+  if (!groupId) {
+    return { error: "環境變數 LINE_GROUP_ID 未設定" };
+  }
+
+  const orders = await listOrdersByMenu(menuId);
+  const pendingOrders = orders.filter((o) => o.status === "pending");
+
+  if (pendingOrders.length === 0) {
+    return { error: "目前沒有任何有效訂單，無法推播叫貨清單" };
+  }
+
+  // 彙整各品項總數量
+  const itemQtyMap = new Map<string, { itemName: string; price: number; qty: number }>();
+  for (const order of pendingOrders) {
+    for (const item of order.items) {
+      const cur = itemQtyMap.get(item.menuItemId) ?? { itemName: item.itemName, price: item.price, qty: 0 };
+      cur.qty += item.quantity;
+      itemQtyMap.set(item.menuItemId, cur);
+    }
+  }
+
+  const lines: string[] = [
+    `【叫貨清單】${menu.storeName} ${menu.menuDate}`,
+  ];
+  let totalQty = 0;
+  let totalAmt = 0;
+  for (const { itemName, price, qty } of itemQtyMap.values()) {
+    if (qty === 0) continue;
+    const subtotal = price * qty;
+    lines.push(`${itemName} × ${qty}（$${subtotal}）`);
+    totalQty += qty;
+    totalAmt += subtotal;
+  }
+  lines.push("──────────");
+  lines.push(`合計：${totalQty} 份 $${totalAmt}`);
+
+  try {
+    const client = getLineMessagingClient();
+    await client.pushMessage({
+      to: groupId,
+      messages: [{ type: "text", text: lines.join("\n") }],
+    });
+  } catch (err) {
+    let detail = err instanceof Error ? err.message : "未知錯誤";
+    if (err && typeof err === "object" && "body" in err) {
+      try {
+        const parsed = JSON.parse(String((err as { body: unknown }).body));
+        if (parsed?.message) detail = `${detail}（${parsed.message}）`;
+      } catch {
+        detail = `${detail}（${String((err as { body: unknown }).body)}）`;
+      }
+    }
+    return { error: `推播失敗：${detail}` };
+  }
+
+  return { success: true };
 }
 
 export async function deleteMenuAction(formData: FormData): Promise<void> {

@@ -5,6 +5,7 @@ import { listOrdersByMenu } from "@/lib/data/orders";
 import { closeMenuAction, deleteMenuAction } from "../actions";
 import PushNotificationButton from "./push-notification-button";
 import AssistedOrderSection from "./assisted-order-section";
+import OrderSummarySection, { type StoreSummaryRow, type BillingRow } from "./order-summary-section";
 
 const STATUS_LABEL: Record<string, string> = {
   open: "收單中",
@@ -25,6 +26,26 @@ export default async function MenuDetailPage({
   }
 
   const [employees, orders] = await Promise.all([listEmployees(), listOrdersByMenu(id)]);
+
+  // 計算彙整資料（只算 pending 訂單）
+  const pendingOrders = orders.filter((o) => o.status === "pending");
+  const storeSummary: StoreSummaryRow[] = menu.items
+    .map((item) => {
+      const totalQuantity = pendingOrders.reduce((sum, order) => {
+        const oi = order.items.find((i) => i.menuItemId === item.id);
+        return sum + (oi?.quantity ?? 0);
+      }, 0);
+      return { menuItemId: item.id, itemName: item.itemName, price: item.price, totalQuantity, totalAmount: item.price * totalQuantity };
+    })
+    .filter((r) => r.totalQuantity > 0);
+  const billingRows: BillingRow[] = pendingOrders
+    .map((order) => ({
+      employeeId: order.employeeId,
+      employeeName: employees.find((e) => e.id === order.employeeId)?.employeeName ?? "(未知)",
+      items: order.items.map((i) => ({ menuItemId: i.menuItemId, itemName: i.itemName, price: i.price, quantity: i.quantity })),
+      totalAmount: order.totalAmount,
+    }))
+    .sort((a, b) => a.employeeName.localeCompare(b.employeeName, "zh-TW"));
 
   return (
     <div>
@@ -82,6 +103,14 @@ export default async function MenuDetailPage({
           <PushNotificationButton menuId={menu.id} />
         </div>
       )}
+
+      <OrderSummarySection
+        menuId={menu.id}
+        storeName={menu.storeName}
+        menuDate={menu.menuDate}
+        storeSummary={storeSummary}
+        billingRows={billingRows}
+      />
 
       <AssistedOrderSection
         menuId={menu.id}

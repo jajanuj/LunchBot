@@ -8,6 +8,7 @@
 // 避免這個會異動資料、會發 LINE 訊息的端點被外部隨意呼叫。
 import { NextResponse } from "next/server";
 import { closeExpiredMenus, findMenusDueForReminder, markReminderSent } from "@/lib/data/menus";
+import { listOrdersByMenu } from "@/lib/data/orders";
 import { buildReminderText } from "@/lib/line/flexMessage";
 import { getLineMessagingClient } from "@/lib/line/client";
 
@@ -52,10 +53,55 @@ export async function GET(request: Request) {
   // 2. 自動結單
   const closed = await closeExpiredMenus(now);
 
+  // 3. 結單後推播叫貨清單
+  const summariesPushed: string[] = [];
+  if (closed.length > 0) {
+    const groupId = process.env.LINE_GROUP_ID;
+    if (!groupId) {
+      console.error("[cron menu-maintenance] 環境變數 LINE_GROUP_ID 未設定，無法推播叫貨清單");
+    } else {
+      const client = getLineMessagingClient();
+      for (const menu of closed) {
+        try {
+          const orders = await listOrdersByMenu(menu.id);
+          const pendingOrders = orders.filter((o) => o.status === "pending");
+          if (pendingOrders.length === 0) continue;
+
+          const itemQtyMap = new Map<string, { itemName: string; price: number; qty: number }>();
+          for (const order of pendingOrders) {
+            for (const item of order.items) {
+              const cur = itemQtyMap.get(item.menuItemId) ?? { itemName: item.itemName, price: item.price, qty: 0 };
+              cur.qty += item.quantity;
+              itemQtyMap.set(item.menuItemId, cur);
+            }
+          }
+
+          let totalQty = 0;
+          let totalAmt = 0;
+          const lines = [`【叫貨清單】${menu.storeName} ${menu.menuDate}`];
+          for (const { itemName, price, qty } of itemQtyMap.values()) {
+            if (qty === 0) continue;
+            const subtotal = price * qty;
+            lines.push(`${itemName} × ${qty}（$${subtotal}）`);
+            totalQty += qty;
+            totalAmt += subtotal;
+          }
+          lines.push("──────────");
+          lines.push(`合計：${totalQty} 份 $${totalAmt}`);
+
+          await client.pushMessage({ to: groupId, messages: [{ type: "text", text: lines.join("\n") }] });
+          summariesPushed.push(`${menu.menuDate} ${menu.storeName}`);
+        } catch (err) {
+          console.error(`[cron menu-maintenance] 推播叫貨清單失敗（${menu.storeName}）：`, err);
+        }
+      }
+    }
+  }
+
   if (remindersSent.length > 0 || closed.length > 0) {
     console.log(
-      `[cron menu-maintenance] 提醒 ${remindersSent.length} 張、關閉 ${closed.length} 張`,
-      { remindersSent, closed }
+      `[cron menu-maintenance] 提醒 ${remindersSent.length} 張、關閉 ${closed.length} 張、推播叫貨清單 ${summariesPushed.length} 張`,
+      { remindersSent, closed, summariesPushed }
     );
   }
 
@@ -65,5 +111,7 @@ export async function GET(request: Request) {
     remindersSent,
     closedCount: closed.length,
     closed,
+    summariesPushedCount: summariesPushed.length,
+    summariesPushed,
   });
 }
