@@ -24,8 +24,8 @@ export default async function AdminLayout({
           <Link href="/admin/menus" className="underline">
             菜單管理
           </Link>
-          <Link href="/admin/templates" className="underline">
-            歷史樣板
+          <Link href="/admin/stores" className="underline">
+            店家管理
           </Link>
           <Link href="/admin/payroll" className="underline">
             薪資扣款

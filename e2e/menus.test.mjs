@@ -59,11 +59,11 @@ async function main() {
       await (await page.$('input[name="itemPrice"]')).type("75");
       // 直接設定 checked 屬性（比 page.click 更可靠，避免 label 雙重觸發的問題）
       await page.evaluate(() => {
-        const cb = document.querySelector('input[name="saveAsTemplate"]');
+        const cb = document.querySelector('input[name="saveAsStore"]');
         if (cb) cb.checked = true;
       });
-      const cbChecked = await page.$eval('input[name="saveAsTemplate"]', (el) => el.checked);
-      assert(cbChecked, "saveAsTemplate checkbox 應為勾選狀態");
+      const cbChecked = await page.$eval('input[name="saveAsStore"]', (el) => el.checked);
+      assert(cbChecked, "saveAsStore checkbox 應為勾選狀態");
       await Promise.all([page.click("#create-menu-submit"), page.waitForNetworkIdle()]);
       // 確認 step 0 已成功建立樣板（若失敗會停在 /menus/new）
       if (page.url() !== `${BASE_URL}/admin/menus`) {
@@ -130,12 +130,12 @@ async function main() {
       // 4. 套用歷史樣板（依 TEMPLATE_STORE 名稱找 option，不用 nth-child 以免選到舊樣板）
       await page.goto(`${BASE_URL}/admin/menus/new`, { waitUntil: "networkidle0" });
       const templateOptionValue = await page.evaluate((storeName) => {
-        const options = Array.from(document.querySelectorAll("#templateSelect option"));
+        const options = Array.from(document.querySelectorAll("#storeSelect option"));
         const opt = options.find((o) => o.text === storeName);
         return opt ? opt.value : "";
       }, TEMPLATE_STORE);
       assert(templateOptionValue, `應在樣板下拉選單中找到「${TEMPLATE_STORE}」`);
-      await page.select("#templateSelect", templateOptionValue);
+      await page.select("#storeSelect", templateOptionValue);
       const storeNameValue = await page.$eval("#storeName", (el) => el.value);
       assert(storeNameValue === TEMPLATE_STORE, `套用樣板後店家名稱應為「${TEMPLATE_STORE}」，實際：${storeNameValue}`);
       const firstItemName = await page.$eval('input[name="itemName"]', (el) => el.value);

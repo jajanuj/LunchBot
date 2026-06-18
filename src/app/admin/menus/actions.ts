@@ -28,7 +28,7 @@ export async function createMenuAction(
   const menuType = (menuTypeRaw === "food" || menuTypeRaw === "drink") ? menuTypeRaw : null;
   const itemNames = formData.getAll("itemName").map(String);
   const itemPrices = formData.getAll("itemPrice").map(String);
-  const saveAsTemplate = formData.get("saveAsTemplate") === "on";
+  const saveAsTemplate = formData.get("saveAsStore") === "on";
   const aiImportId = String(formData.get("aiImportId") ?? "");
 
   const items = itemNames.map((name, i) => ({

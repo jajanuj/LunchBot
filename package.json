@@ -19,10 +19,10 @@
     "test:e2e:menu-reminder-logic": "node --no-warnings --env-file=.env.local e2e/menu-reminder-logic.test.mjs",
     "test:e2e:assisted-order": "node e2e/assisted-order.test.mjs",
     "test:e2e:ai-menu-import": "node --env-file=.env.local e2e/ai-menu-import.test.mjs",
-    "test:e2e:templates": "node e2e/templates.test.mjs",
+    "test:e2e:stores": "node e2e/stores.test.mjs",
     "test:e2e:order-summary": "node e2e/order-summary.test.mjs",
     "test:e2e:payroll": "node e2e/payroll.test.mjs",
-    "test:e2e": "npm run test:e2e:smoke && npm run test:e2e:login && npm run test:e2e:employees && npm run test:e2e:employees-bulk && npm run test:e2e:menus && npm run test:e2e:line-webhook && npm run test:e2e:line-flex-message && npm run test:e2e:liff-order && npm run test:e2e:cron-menu-maintenance && npm run test:e2e:menu-reminder-logic && npm run test:e2e:assisted-order && npm run test:e2e:ai-menu-import && npm run test:e2e:templates && npm run test:e2e:order-summary && npm run test:e2e:payroll",
+    "test:e2e": "npm run test:e2e:smoke && npm run test:e2e:login && npm run test:e2e:employees && npm run test:e2e:employees-bulk && npm run test:e2e:menus && npm run test:e2e:line-webhook && npm run test:e2e:line-flex-message && npm run test:e2e:liff-order && npm run test:e2e:cron-menu-maintenance && npm run test:e2e:menu-reminder-logic && npm run test:e2e:assisted-order && npm run test:e2e:ai-menu-import && npm run test:e2e:stores && npm run test:e2e:order-summary && npm run test:e2e:payroll",
     "verify:line-push": "node --env-file=.env.local e2e/manual-verify-line-push.mjs"
   },
   "dependencies": {

@@ -221,19 +221,19 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
         </div>
       </details>
 
-      {/* 歷史樣板 */}
+      {/* 套用店家 */}
       {templates.length > 0 && (
         <div className="flex flex-col gap-1">
-          <label htmlFor="templateSelect" className="text-sm font-medium">
-            套用歷史樣板（選填）
+          <label htmlFor="storeSelect" className="text-sm font-medium">
+            套用店家（選填）
           </label>
           <select
-            id="templateSelect"
+            id="storeSelect"
             value={selectedTemplateId}
             onChange={(e) => applyTemplate(e.target.value)}
             className="border rounded px-3 py-2 bg-white dark:bg-gray-800 dark:text-white"
           >
-            <option value="">不使用樣板，手動輸入</option>
+            <option value="">不套用，手動輸入</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.storeName}
@@ -372,8 +372,8 @@ export default function MenuForm({ templates }: { templates: TemplateOption[] })
       </div>
 
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="saveAsTemplate" />
-        將這個店家的品項存為歷史樣板（下次可一鍵套用）
+        <input type="checkbox" name="saveAsStore" />
+        同步儲存至店家管理（下次建立菜單時可一鍵套用）
       </label>
 
       {/* AI import ID 隱藏欄位，供 Server Action 建立菜單後回寫 menu_id */}

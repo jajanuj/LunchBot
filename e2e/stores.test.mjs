@@ -1,21 +1,23 @@
-// E2E 測試：歷史店家樣板管理（/admin/templates）
-// 用法：npm run test:e2e:templates
+// E2E 測試：店家管理（/admin/stores）
+// 用法：npm run test:e2e:stores
 //
 // 涵蓋情境：
-//   1. 建立含樣板的菜單 -> 樣板出現在 /admin/templates 列表
-//   2. 進入編輯頁 -> 修改店家名稱與品項 -> 儲存 -> 列表反映變更
-//   3. 刪除樣板 -> 從列表消失
-//   4. 批次刪除多個樣板 -> 全部從列表消失
+//   1. 直接新增店家（不透過菜單）
+//   2. 建立含「同步儲存至店家管理」的菜單 -> 店家出現在列表
+//   3. 進入編輯頁 -> 修改店家名稱與品項 -> 儲存 -> 列表反映變更
+//   4. 刪除店家 -> 從列表消失
+//   5. 批次刪除多個店家 -> 全部從列表消失
 import { spawn } from "node:child_process";
 import puppeteer from "puppeteer";
 import { waitForServerReady, killProcessTree, assert, loginAsMockAdmin } from "./utils.mjs";
 
 const PORT = 3120;
 const BASE_URL = `http://localhost:${PORT}`;
+const NEW_STORE = `直接新增店家_${Date.now()}`;
 const ORIG_STORE = `樣板測試店_${Date.now()}`;
 const RENAMED_STORE = `改名後店家_${Date.now()}`;
-const BATCH_A = `批次樣板甲_${Date.now()}`;
-const BATCH_B = `批次樣板乙_${Date.now()}`;
+const BATCH_A = `批次店家甲_${Date.now()}`;
+const BATCH_B = `批次店家乙_${Date.now()}`;
 
 function futureDateString(days) {
   const d = new Date();
@@ -36,8 +38,8 @@ async function setInputValue(page, selector, value) {
   );
 }
 
-/** 建立一張菜單並選擇存為樣板 */
-async function createMenuWithTemplate(page, storeName, dateOffset = 5) {
+/** 建立一張菜單並勾選「同步儲存至店家管理」 */
+async function createMenuWithStore(page, storeName, dateOffset = 5) {
   const menuDate = futureDateString(dateOffset);
   await page.goto(`${BASE_URL}/admin/menus/new`, { waitUntil: "networkidle0" });
   await setInputValue(page, "#menuDate", menuDate);
@@ -46,38 +48,47 @@ async function createMenuWithTemplate(page, storeName, dateOffset = 5) {
   await (await page.$('input[name="itemName"]')).type("測試品項");
   await (await page.$('input[name="itemPrice"]')).type("80");
   await page.evaluate(() => {
-    const cb = document.querySelector('input[name="saveAsTemplate"]');
+    const cb = document.querySelector('input[name="saveAsStore"]');
     if (cb) cb.checked = true;
   });
   await Promise.all([page.click("#create-menu-submit"), page.waitForNetworkIdle()]);
 }
 
 async function main() {
-  console.log(`[e2e:templates] 啟動 Next.js dev server（port ${PORT}）...`);
+  console.log(`[e2e:stores] 啟動 Next.js dev server（port ${PORT}）...`);
   const server = spawn(`npx next dev -p ${PORT}`, { shell: true, cwd: process.cwd() });
 
   let exitCode = 0;
   try {
     await waitForServerReady(server);
-    console.log("[e2e:templates] dev server 已就緒，開始測試...");
+    console.log("[e2e:stores] dev server 已就緒，開始測試...");
 
     const browser = await puppeteer.launch();
     try {
       const page = await browser.newPage();
-      // 自動接受 confirm 對話框
       page.on("dialog", async (dialog) => dialog.accept());
       await loginAsMockAdmin(page, BASE_URL);
 
-      // 1. 建立菜單存為樣板
-      await createMenuWithTemplate(page, ORIG_STORE);
-      assert(page.url() === `${BASE_URL}/admin/menus`, `建立菜單後應回到列表，實際：${page.url()}`);
-
-      await page.goto(`${BASE_URL}/admin/templates`, { waitUntil: "networkidle0" });
+      // 1. 直接新增店家
+      await page.goto(`${BASE_URL}/admin/stores/new`, { waitUntil: "networkidle0" });
+      await page.type("#storeName", NEW_STORE);
+      await (await page.$('input[name="itemName"]')).type("直接新增品項");
+      await (await page.$('input[name="itemPrice"]')).type("120");
+      await Promise.all([page.click("#create-store-submit"), page.waitForNetworkIdle()]);
+      assert(page.url() === `${BASE_URL}/admin/stores`, `新增後應回到列表，實際：${page.url()}`);
       let pageText = await page.evaluate(() => document.body.innerText);
-      assert(pageText.includes(ORIG_STORE), `樣板列表應看到「${ORIG_STORE}」`);
-      console.log("[e2e:templates] ✅ 建立菜單後樣板出現在列表");
+      assert(pageText.includes(NEW_STORE), `列表應看到「${NEW_STORE}」`);
+      console.log("[e2e:stores] ✅ 直接新增店家成功");
 
-      // 2. 點擊編輯連結
+      // 2. 建立菜單時同步儲存店家
+      await createMenuWithStore(page, ORIG_STORE);
+      assert(page.url() === `${BASE_URL}/admin/menus`, `建立菜單後應回到列表，實際：${page.url()}`);
+      await page.goto(`${BASE_URL}/admin/stores`, { waitUntil: "networkidle0" });
+      pageText = await page.evaluate(() => document.body.innerText);
+      assert(pageText.includes(ORIG_STORE), `店家列表應看到「${ORIG_STORE}」`);
+      console.log("[e2e:stores] ✅ 建立菜單時同步儲存店家成功");
+
+      // 3. 點擊編輯
       const editLinkHandle = await page.evaluateHandle((name) => {
         const rows = Array.from(document.querySelectorAll("tbody tr"));
         const row = rows.find((r) => r.textContent.includes(name));
@@ -85,28 +96,22 @@ async function main() {
       }, ORIG_STORE);
       assert(editLinkHandle.asElement(), "應找到編輯連結");
       await Promise.all([editLinkHandle.asElement().click(), page.waitForNetworkIdle()]);
-      assert(page.url().includes("/admin/templates/"), `應進入編輯頁，實際：${page.url()}`);
+      assert(page.url().includes("/admin/stores/"), `應進入編輯頁，實際：${page.url()}`);
 
-      // 修改店家名稱
       const storeInput = await page.$("#storeName");
       await storeInput.evaluate((el) => (el.value = ""));
       await storeInput.type(RENAMED_STORE);
-
-      // 修改第一個品項名稱
       const firstItemInput = await page.$('input[name="itemName"]');
       await firstItemInput.evaluate((el) => (el.value = ""));
       await firstItemInput.type("修改後品項B");
-
-      // 新增第二個品項
-      await page.click("#add-template-item-row");
+      await page.click("#add-store-item-row");
       const itemInputs = await page.$$('input[name="itemName"]');
       await itemInputs[1].type("新增品項C");
       const priceInputs = await page.$$('input[name="itemPrice"]');
       await priceInputs[1].evaluate((el) => (el.value = "150"));
 
-      await Promise.all([page.click("#update-template-submit"), page.waitForNetworkIdle()]);
-      assert(page.url() === `${BASE_URL}/admin/templates`, `儲存後應回到列表，實際：${page.url()}`);
-
+      await Promise.all([page.click("#update-store-submit"), page.waitForNetworkIdle()]);
+      assert(page.url() === `${BASE_URL}/admin/stores`, `儲存後應回到列表，實際：${page.url()}`);
       pageText = await page.evaluate(() => document.body.innerText);
       assert(pageText.includes(RENAMED_STORE), `列表應顯示新店家名稱「${RENAMED_STORE}」`);
       assert(!pageText.includes(ORIG_STORE), `舊店家名稱「${ORIG_STORE}」不應再出現`);
@@ -116,9 +121,9 @@ async function main() {
         return row ? row.innerText : "";
       }, RENAMED_STORE);
       assert(updatedRowText.includes("2"), `修改後品項數應為 2，實際：${updatedRowText}`);
-      console.log("[e2e:templates] ✅ 編輯店家名稱與品項成功，列表正確更新");
+      console.log("[e2e:stores] ✅ 編輯店家名稱與品項成功，列表正確更新");
 
-      // 3. 刪除樣板（單筆）
+      // 4. 刪除店家（單筆）
       const deleteBtn = await page.evaluateHandle((name) => {
         const trs = Array.from(document.querySelectorAll("tbody tr"));
         const row = trs.find((r) => r.textContent.includes(name));
@@ -131,18 +136,16 @@ async function main() {
       await page.waitForNetworkIdle();
       pageText = await page.evaluate(() => document.body.innerText);
       assert(!pageText.includes(RENAMED_STORE), `刪除後不應看到「${RENAMED_STORE}」`);
-      console.log("[e2e:templates] ✅ 刪除樣板成功");
+      console.log("[e2e:stores] ✅ 刪除店家成功");
 
-      // 4. 批次刪除
-      await createMenuWithTemplate(page, BATCH_A, 6);
-      await createMenuWithTemplate(page, BATCH_B, 7);
-
-      await page.goto(`${BASE_URL}/admin/templates`, { waitUntil: "networkidle0" });
+      // 5. 批次刪除
+      await createMenuWithStore(page, BATCH_A, 6);
+      await createMenuWithStore(page, BATCH_B, 7);
+      await page.goto(`${BASE_URL}/admin/stores`, { waitUntil: "networkidle0" });
       pageText = await page.evaluate(() => document.body.innerText);
       assert(pageText.includes(BATCH_A), `列表應看到「${BATCH_A}」`);
       assert(pageText.includes(BATCH_B), `列表應看到「${BATCH_B}」`);
 
-      // 勾選 BATCH_A 和 BATCH_B
       await page.evaluate((nameA, nameB) => {
         const trs = Array.from(document.querySelectorAll("tbody tr"));
         for (const tr of trs) {
@@ -153,18 +156,18 @@ async function main() {
         }
       }, BATCH_A, BATCH_B);
 
-      const batchBtn = await page.waitForSelector("#batch-delete-templates-submit");
+      const batchBtn = await page.waitForSelector("#batch-delete-stores-submit");
       await batchBtn.click();
       await page.waitForNetworkIdle();
       pageText = await page.evaluate(() => document.body.innerText);
       assert(!pageText.includes(BATCH_A), `批次刪除後不應看到「${BATCH_A}」`);
       assert(!pageText.includes(BATCH_B), `批次刪除後不應看到「${BATCH_B}」`);
-      console.log("[e2e:templates] ✅ 批次刪除樣板成功");
+      console.log("[e2e:stores] ✅ 批次刪除店家成功");
     } finally {
       await browser.close();
     }
   } catch (err) {
-    console.error("[e2e:templates] ❌ 測試失敗：", err.message);
+    console.error("[e2e:stores] ❌ 測試失敗：", err.message);
     exitCode = 1;
   } finally {
     killProcessTree(server);

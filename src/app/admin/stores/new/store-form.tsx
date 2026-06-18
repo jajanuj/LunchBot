@@ -1,8 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { updateTemplateAction } from "../actions";
-import type { StoreTemplate } from "@/lib/data/storeTemplates";
+import { createStoreAction } from "../actions";
 
 type ItemRow = { key: string; itemName: string; price: string };
 
@@ -10,14 +9,9 @@ function makeKey() {
   return Math.random().toString(36).slice(2);
 }
 
-export default function TemplateEditForm({ template }: { template: StoreTemplate }) {
-  const [state, formAction, pending] = useActionState(updateTemplateAction, undefined);
-  const [storeName, setStoreName] = useState(template.storeName);
-  const [items, setItems] = useState<ItemRow[]>(
-    template.items.length > 0
-      ? template.items.map((i) => ({ key: makeKey(), itemName: i.itemName, price: String(i.price) }))
-      : [{ key: makeKey(), itemName: "", price: "" }]
-  );
+export default function StoreNewForm() {
+  const [state, formAction, pending] = useActionState(createStoreAction, undefined);
+  const [items, setItems] = useState<ItemRow[]>([{ key: makeKey(), itemName: "", price: "" }]);
 
   function updateItem(key: string, field: "itemName" | "price", value: string) {
     setItems((prev) => prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
@@ -33,8 +27,6 @@ export default function TemplateEditForm({ template }: { template: StoreTemplate
 
   return (
     <form action={formAction} className="flex flex-col gap-4 max-w-lg">
-      <input type="hidden" name="id" value={template.id} />
-
       <div className="flex flex-col gap-1">
         <label htmlFor="storeName" className="text-sm font-medium">
           店家名稱
@@ -44,8 +36,7 @@ export default function TemplateEditForm({ template }: { template: StoreTemplate
           name="storeName"
           type="text"
           required
-          value={storeName}
-          onChange={(e) => setStoreName(e.target.value)}
+          placeholder="例如：阿明便當、50嵐"
           className="border rounded px-3 py-2 dark:bg-gray-800 dark:text-white dark:border-gray-600"
         />
       </div>
@@ -83,7 +74,7 @@ export default function TemplateEditForm({ template }: { template: StoreTemplate
           </div>
         ))}
         <button
-          id="add-template-item-row"
+          id="add-store-item-row"
           type="button"
           onClick={addRow}
           className="self-start text-sm underline"
@@ -99,12 +90,12 @@ export default function TemplateEditForm({ template }: { template: StoreTemplate
       )}
 
       <button
-        id="update-template-submit"
+        id="create-store-submit"
         type="submit"
         disabled={pending}
         className="self-start bg-black text-white rounded px-4 py-2 disabled:opacity-50"
       >
-        {pending ? "儲存中..." : "儲存變更"}
+        {pending ? "建立中..." : "建立店家"}
       </button>
     </form>
   );
