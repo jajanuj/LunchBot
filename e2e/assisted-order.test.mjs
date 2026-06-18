@@ -79,7 +79,7 @@ async function main() {
 
       // 展開「助理代客新增/修改訂單」區塊
       await page.evaluate(() => {
-        document.querySelector("details").open = true;
+        document.getElementById("assisted-order-details").open = true;
       });
 
       // 1. 選擇 EMPLOYEE_A，數量填 2，送出
@@ -96,7 +96,7 @@ async function main() {
       console.log("[e2e:assisted-order] ✅ 助理代客新增訂單成功，列表正確顯示");
 
       // 2. 修改同一位員工數量為 3（upsert，不應該變成兩筆）
-      await page.evaluate(() => { document.querySelector("details").open = true; });
+      await page.evaluate(() => { document.getElementById("assisted-order-details").open = true; });
       await selectEmployee(page, EMPLOYEE_A);
       const qtyInput2 = await page.$('input[name="quantity"]');
       const prefilled = await qtyInput2.evaluate((el) => el.value);
@@ -128,7 +128,7 @@ async function main() {
       bodyText = await page.evaluate(() => document.body.innerText);
       assert(bodyText.includes("已結單"), "應先確認菜單已結單");
 
-      await page.evaluate(() => { document.querySelector("details").open = true; });
+      await page.evaluate(() => { document.getElementById("assisted-order-details").open = true; });
       await selectEmployee(page, EMPLOYEE_B);
       const qtyInput3 = await page.$('input[name="quantity"]');
       await qtyInput3.evaluate((el) => (el.value = ""));

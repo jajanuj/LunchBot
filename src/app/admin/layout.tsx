@@ -26,7 +26,7 @@ export default async function AdminLayout({
           </Link>
         </nav>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-600">{user.displayName}</span>
+          <span className="text-sm text-gray-600 dark:text-gray-300">{user.displayName}</span>
           <form action={logout}>
             <button id="logout-submit" type="submit" className="text-sm underline">
               登出

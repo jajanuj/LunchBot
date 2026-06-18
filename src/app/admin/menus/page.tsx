@@ -28,7 +28,7 @@ export default async function MenusPage({
       </div>
 
       {!showAll && (
-        <p className="text-sm text-gray-500 mb-3">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
           顯示最近 30 天的紀錄（共 {menus.length} 筆）
         </p>
       )}
@@ -37,11 +37,11 @@ export default async function MenusPage({
 
       <div className="mt-4 text-sm">
         {showAll ? (
-          <Link href="/admin/menus" className="underline text-gray-500">
+          <Link href="/admin/menus" className="underline text-gray-500 dark:text-gray-400">
             ← 只顯示最近 30 天
           </Link>
         ) : (
-          <Link href="/admin/menus?all=1" className="underline text-gray-500">
+          <Link href="/admin/menus?all=1" className="underline text-gray-500 dark:text-gray-400">
             顯示更早的紀錄 →
           </Link>
         )}

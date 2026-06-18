@@ -31,7 +31,7 @@ export default async function MenuDetailPage({
       <h1 className="text-xl font-bold mb-2">
         {menu.menuDate} {menu.sessionName ? `（${menu.sessionName}）` : ""} - {menu.storeName}
       </h1>
-      <p className="text-sm text-gray-600 mb-4">
+      <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
         狀態：{STATUS_LABEL[menu.status] ?? menu.status}　|　截止時間：
         {new Date(menu.cutoffTime).toLocaleString("zh-TW")}
         {menu.reminderMinutesBefore && (
@@ -44,27 +44,32 @@ export default async function MenuDetailPage({
         )}
       </p>
 
-      <table className="w-full border-collapse text-left mb-6">
-        <thead>
-          <tr className="border-b">
-            <th className="py-2 pr-4">品名</th>
-            <th className="py-2 pr-4">價格</th>
-          </tr>
-        </thead>
-        <tbody>
-          {menu.items.map((item) => (
-            <tr key={item.id} className="border-b">
-              <td className="py-2 pr-4">{item.itemName}</td>
-              <td className="py-2 pr-4">{item.price}</td>
+      <details className="mb-6 border rounded p-3">
+        <summary className="cursor-pointer font-medium text-sm">
+          品項清單（{menu.items.length} 項，點擊展開）
+        </summary>
+        <table className="w-full border-collapse text-left mt-2">
+          <thead>
+            <tr className="border-b">
+              <th className="py-2 pr-4">品名</th>
+              <th className="py-2 pr-4">價格</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {menu.items.map((item) => (
+              <tr key={item.id} className="border-b">
+                <td className="py-2 pr-4">{item.itemName}</td>
+                <td className="py-2 pr-4">{item.price}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
 
       {menu.status === "open" && (
         <div className="mb-4 flex flex-col gap-3">
           <div>
-            <p className="text-sm text-gray-600 mb-1">點餐連結（可複製給員工或自行測試）：</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">點餐連結（可複製給員工或自行測試）：</p>
             <a
               href={`/liff/order?menuId=${menu.id}`}
               target="_blank"

@@ -111,6 +111,8 @@ async function main() {
       const detailLink = detailLinkHandle.asElement();
       assert(detailLink, "應找到查看連結");
       await Promise.all([detailLink.click(), page.waitForNetworkIdle()]);
+      // 品項清單預設摺疊，先展開 <details> 再做斷言
+      await page.click("details > summary");
       const detailText = await page.evaluate(() => document.body.innerText);
       assert(detailText.includes("雞腿飯") && detailText.includes("90"), "詳細頁應看到雞腿飯/90");
       assert(detailText.includes("排骨飯") && detailText.includes("85"), "詳細頁應看到排骨飯/85");

@@ -20,7 +20,7 @@ export default function BulkImportForm() {
       <summary className="cursor-pointer font-medium">批次匯入員工（貼名單或上傳 CSV/TXT）</summary>
 
       <form action={formAction} className="flex flex-col gap-2 mt-3">
-        <label htmlFor="namesText" className="text-sm text-gray-600">
+        <label htmlFor="namesText" className="text-sm text-gray-600 dark:text-gray-300">
           每行一個姓名（可直接從 Excel 貼上整欄，或用逗號分隔）
         </label>
         <textarea

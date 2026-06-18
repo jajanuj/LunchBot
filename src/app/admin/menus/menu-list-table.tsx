@@ -79,7 +79,7 @@ export default function MenuListTable({ menus }: { menus: Menu[] }) {
           <button
             type="button"
             onClick={() => setSelected(new Set())}
-            className="text-sm text-gray-500 underline"
+            className="text-sm text-gray-500 dark:text-gray-400 underline"
           >
             取消選取
           </button>
@@ -144,7 +144,7 @@ export default function MenuListTable({ menus }: { menus: Menu[] }) {
           ))}
           {menus.length === 0 && (
             <tr>
-              <td colSpan={7} className="py-4 text-gray-500">
+              <td colSpan={7} className="py-4 text-gray-500 dark:text-gray-400">
                 沒有符合的菜單紀錄。
               </td>
             </tr>

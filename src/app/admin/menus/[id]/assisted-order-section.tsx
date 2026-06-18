@@ -42,7 +42,7 @@ export default function AssistedOrderSection({
   }
 
   return (
-    <details className="border rounded p-4 mb-4">
+    <details id="assisted-order-details" className="border rounded p-4 mb-4">
       <summary className="cursor-pointer font-medium">助理代客新增/修改訂單</summary>
 
       <form action={formAction} className="flex flex-col gap-3 mt-3 max-w-md">
@@ -57,7 +57,7 @@ export default function AssistedOrderSection({
             name="employeeId"
             value={selectedEmployeeId}
             onChange={(e) => selectEmployee(e.target.value)}
-            className="border rounded px-3 py-2"
+            className="border rounded px-3 py-2 dark:bg-gray-800 dark:text-white dark:border-gray-600"
           >
             <option value="">請選擇</option>
             {employees.map((e) => (
@@ -82,7 +82,7 @@ export default function AssistedOrderSection({
               onChange={(e) =>
                 setQuantities((prev) => ({ ...prev, [item.id]: Number(e.target.value) }))
               }
-              className="border rounded px-2 py-1 w-20"
+              className="border rounded px-2 py-1 w-20 dark:bg-gray-800 dark:text-white dark:border-gray-600"
               aria-label={`${item.itemName} 數量`}
             />
           </div>
@@ -140,7 +140,7 @@ export default function AssistedOrderSection({
           })}
           {existingOrders.length === 0 && (
             <tr>
-              <td colSpan={5} className="py-4 text-gray-500">
+              <td colSpan={5} className="py-4 text-gray-500 dark:text-gray-400">
                 目前還沒有人下單。
               </td>
             </tr>
