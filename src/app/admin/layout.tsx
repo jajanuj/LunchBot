@@ -24,6 +24,9 @@ export default async function AdminLayout({
           <Link href="/admin/menus" className="underline">
             菜單管理
           </Link>
+          <Link href="/admin/templates" className="underline">
+            歷史樣板
+          </Link>
         </nav>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-600 dark:text-gray-300">{user.displayName}</span>

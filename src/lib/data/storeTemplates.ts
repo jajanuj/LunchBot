@@ -54,6 +54,49 @@ export async function getTemplate(id: string): Promise<StoreTemplate | undefined
   return data ? toTemplate(data as TemplateRow) : undefined;
 }
 
+export async function deleteTemplate(id: string): Promise<void> {
+  const { error } = await supabase.from("store_templates").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateTemplateFull(
+  id: string,
+  storeName: string,
+  items: TemplateItemInput[]
+): Promise<StoreTemplate> {
+  const trimmedName = storeName.trim();
+
+  const { error: nameErr } = await supabase
+    .from("store_templates")
+    .update({ store_name: trimmedName })
+    .eq("id", id);
+  if (nameErr) throw new Error(nameErr.message);
+
+  // 刪除舊品項，重新插入
+  const { error: delErr } = await supabase
+    .from("template_items")
+    .delete()
+    .eq("template_id", id);
+  if (delErr) throw new Error(delErr.message);
+
+  const { data: newItems, error: insertErr } = await supabase
+    .from("template_items")
+    .insert(items.map((i) => ({ template_id: id, item_name: i.itemName, price: i.price })))
+    .select("id, item_name, price");
+  if (insertErr) throw new Error(insertErr.message);
+
+  return {
+    id,
+    storeName: trimmedName,
+    lastUsedAt: null,
+    items: (newItems as { id: string; item_name: string; price: number }[]).map((i) => ({
+      id: i.id,
+      itemName: i.item_name,
+      price: i.price,
+    })),
+  };
+}
+
 export async function upsertTemplate(
   storeName: string,
   items: TemplateItemInput[]
