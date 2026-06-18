@@ -62,16 +62,15 @@
     - `AssistedOrderSection` 的員工下拉、數量輸入框補上深色模式樣式（`dark:bg-gray-800 dark:text-white dark:border-gray-600`）
     - 員工名冊頁新增「LINE 綁定說明」摺疊區塊，五步驟說明首次綁定流程
     - E2E 測試同步修正：menus 測試在斷言品項前展開 `<details>`；assisted-order 測試改用 `id="assisted-order-details"` 選取器，不再依賴 `document.querySelector("details")` 位置順序
-  - `npm run build` / `npm run lint` / `npm run test:e2e`（共 43 個情境）皆通過
+  - **WBS 階段四（結算彙整與薪資扣款）全部完成（2026-06-19）：**
+    - **4A — 收單後彙整**：`/admin/menus/[id]` 新增「店家叫貨清單」（品項 × 總數量 + 小計）+ 「個人對帳清單」（每人 × 金額），含「推播叫貨清單至 LINE 群組」按鈕與「匯出個人對帳清單（CSV）」按鈕；自動結單 cron 同步推播叫貨清單；E2E 測試（port 3122）全數通過
+    - **4B — 月結薪資扣款**：`/admin/payroll` 新頁面（帳期選擇 + 產生扣款紀錄 + 員工彙整表格 + CSV 匯出 + 標記已匯出）；`payroll_deductions` 資料表 migration（`0007_payroll_deductions.sql`）已套用至 Supabase；E2E 測試（port 3124）全數通過
+  - `npm run test:e2e`（共 51 個情境，15 個套件）全部通過
 
 - 🔄 **進行中**
   - 無
 
 - ⏳ **待處理**
-  - **⚠️ 需手動執行**：`supabase/migrations/0004_cascade_delete_on_menus.sql` 尚未套用到 Supabase，請到 Supabase Dashboard > SQL Editor 執行，否則刪除有訂單的菜單會出現 FK 約束錯誤
-  - **WBS 階段四（結算彙整與薪資扣款）**
-    - **4A — 收單後彙整**（下一個要做）：`/admin/menus/[id]` 新增「店家叫貨清單」（品項 × 總數量）+ 「個人對帳清單」（每人 × 金額），含「推播叫貨清單至 LINE 群組」按鈕與「匯出個人對帳清單（CSV）」按鈕；自動結單 cron 同步推播叫貨清單
-    - **4B — 月結薪資扣款**：`/admin/payroll` 新頁面，選月份 → 產生 `payroll_deductions` → 匯出 CSV → 標記已匯出；需新增 Supabase migration（`payroll_deductions` 資料表）
   - 部署到 Vercel（設定環境變數、驗證 Cron Job 執行頻率）
   - 提醒推播的「真的發送成功」只用人工方式驗證過一次（自動化測試只測「沒有提醒到期」分支，避免每次測試都真的發訊息到群組），若之後改了 `buildReminderText()` 或推播邏輯，建議照 `npm run verify:line-push` 的模式寫一個對應的手動驗證腳本
   - 部署到 Vercel 時要確認方案的 Cron 執行頻率限制（Hobby 方案曾經一度限制為每天最多 1 次），若不符合「每 10 分鐘」的設計需求，要評估改成每天固定時段或升級方案
