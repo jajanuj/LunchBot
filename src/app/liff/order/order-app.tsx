@@ -30,7 +30,11 @@ type Stage =
 
 type ItemState = { quantity: number; notes: string };
 
-export default function OrderApp({ menuId }: { menuId: string }) {
+// menuId 不接受 prop，改在 liff.init() 完成後從 window.location.search 讀取。
+// 原因：LINE LIFF 透過 liff.state 傳遞的 query params 是在 init() 之後
+// 才更新至 window.location，server 端 searchParams 在這之前看不到 menuId。
+export default function OrderApp() {
+  const [menuId, setMenuId] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>("initializing");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -46,7 +50,8 @@ export default function OrderApp({ menuId }: { menuId: string }) {
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  // 1. 初始化 LIFF，解析目前使用者身分
+  // 1. 初始化 LIFF；init() 完成後 LIFF 已處理 liff.state，
+  //    此時 window.location.search 才會包含 menuId。
   useEffect(() => {
     let cancelled = false;
 
@@ -67,6 +72,15 @@ export default function OrderApp({ menuId }: { menuId: string }) {
       }
 
       if (cancelled) return;
+
+      // init() 完成後才讀 menuId（liff.state 已更新至 URL）
+      const extractedMenuId = new URLSearchParams(window.location.search).get("menuId");
+      if (!extractedMenuId) {
+        setErrorMessage("缺少 menuId 參數，請從 LINE 推播訊息的按鈕進入此頁面。");
+        setStage("error");
+        return;
+      }
+      setMenuId(extractedMenuId);
 
       if (liff.isLoggedIn()) {
         try {
@@ -125,13 +139,13 @@ export default function OrderApp({ menuId }: { menuId: string }) {
 
   // 3. 員工確定後，載入菜單與既有訂單
   useEffect(() => {
-    if (!employee) return;
+    if (!employee || !menuId) return;
     let cancelled = false;
 
     async function loadMenuAndOrder() {
       const [loadedMenu, loadedOrder] = await Promise.all([
-        getMenuForOrderingAction(menuId),
-        getExistingOrderAction(menuId, employee!.id),
+        getMenuForOrderingAction(menuId!),
+        getExistingOrderAction(menuId!, employee!.id),
       ]);
       if (cancelled) return;
 
@@ -183,7 +197,7 @@ export default function OrderApp({ menuId }: { menuId: string }) {
   }
 
   async function handleSubmitOrder() {
-    if (!employee) return;
+    if (!employee || !menuId) return;
     const items = Object.entries(itemsState)
       .filter(([, state]) => state.quantity > 0)
       .map(([menuItemId, state]) => ({
@@ -206,7 +220,7 @@ export default function OrderApp({ menuId }: { menuId: string }) {
   }
 
   async function handleCancelOrder() {
-    if (!employee) return;
+    if (!employee || !menuId) return;
     setPending(true);
     await cancelOrderAction(menuId, employee.id);
     setPending(false);
