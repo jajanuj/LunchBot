@@ -41,7 +41,8 @@ type OrderRow = {
     menu_item_id: string;
     quantity: number;
     custom_notes: string | null;
-    menu_items: { item_name: string; price: number };
+    price: number;
+    menu_items: { item_name: string };
   }[];
 };
 
@@ -57,7 +58,7 @@ function toOrder(row: OrderRow): Order {
       id: i.id,
       menuItemId: i.menu_item_id,
       itemName: i.menu_items.item_name,
-      price: i.menu_items.price,
+      price: i.price,
       quantity: i.quantity,
       customNotes: i.custom_notes,
     })),
@@ -65,7 +66,7 @@ function toOrder(row: OrderRow): Order {
 }
 
 const ORDER_SELECT =
-  "id, menu_id, employee_id, total_amount, status, source, order_items(id, menu_item_id, quantity, custom_notes, menu_items(item_name, price))";
+  "id, menu_id, employee_id, total_amount, status, source, order_items(id, menu_item_id, quantity, custom_notes, price, menu_items(item_name))";
 
 export async function getOrder(menuId: string, employeeId: string): Promise<Order | undefined> {
   const { data, error } = await supabase
@@ -153,6 +154,7 @@ export async function upsertOrder(
       menu_item_id: i.menuItemId,
       quantity: i.quantity,
       custom_notes: i.customNotes,
+      price: i.price,
     }))
   );
   if (insertErr) throw new Error(insertErr.message);

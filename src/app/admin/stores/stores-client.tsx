@@ -86,6 +86,7 @@ export default function StoresClient({
         </p>
       )}
 
+      {/* 批次操作列 */}
       {selected.size > 0 && (
         <div className="mb-3 flex items-center gap-3">
           <button
@@ -107,62 +108,113 @@ export default function StoresClient({
         </div>
       )}
 
-      <table className="w-full border-collapse text-left">
-        <thead>
-          <tr className="border-b">
-            <th className="py-2 pr-3 w-8">
-              <input
-                type="checkbox"
-                id="select-all-stores"
-                checked={allSelected}
-                ref={(el) => { if (el) el.indeterminate = someSelected; }}
-                onChange={toggleAll}
-                aria-label="全選"
-                className="cursor-pointer"
-              />
-            </th>
-            <th className="py-2 pr-4">店家名稱</th>
-            <th className="py-2 pr-4">品項數</th>
-            <th className="py-2 pr-4">最近使用</th>
-            <th className="py-2 pr-4">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {stores.map((store) => (
-            <tr key={store.id} className="border-b">
-              <td className="py-2 pr-3">
-                <input
-                  type="checkbox"
-                  checked={selected.has(store.id)}
-                  onChange={() => toggle(store.id)}
-                  className="cursor-pointer"
-                  aria-label={`選取 ${store.storeName}`}
-                />
-              </td>
-              <td className="py-2 pr-4">{store.storeName}</td>
-              <td className="py-2 pr-4">{store.items.length}</td>
-              <td className="py-2 pr-4 text-gray-500 dark:text-gray-400">
-                {store.lastUsedAt
-                  ? new Date(store.lastUsedAt).toLocaleDateString("zh-TW")
-                  : "-"}
-              </td>
-              <td className="py-2 pr-4 flex gap-3">
-                <Link href={`/admin/stores/${store.id}`} className="text-sm underline">
-                  編輯
-                </Link>
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => handleSingleDelete(store.id, store.storeName)}
-                  className="text-sm text-red-600 underline disabled:opacity-50"
-                >
-                  刪除
-                </button>
-              </td>
+      {/* 全選列 */}
+      <div className="flex items-center gap-2 mb-3">
+        <input
+          type="checkbox"
+          id="select-all-stores"
+          checked={allSelected}
+          ref={(el) => { if (el) el.indeterminate = someSelected; }}
+          onChange={toggleAll}
+          aria-label="全選"
+          className="cursor-pointer"
+        />
+        <span className="text-sm text-gray-500 dark:text-gray-400">全選</span>
+      </div>
+
+      {/* ── 卡片視圖（主要顯示）── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {stores.map((store) => (
+          <div
+            key={store.id}
+            data-store-id={store.id}
+            data-store-name={store.storeName}
+            className="relative flex flex-col border rounded-xl p-4 dark:border-gray-700 dark:bg-gray-900 bg-white shadow-sm"
+          >
+            {/* 左上角 checkbox */}
+            <input
+              type="checkbox"
+              checked={selected.has(store.id)}
+              onChange={() => toggle(store.id)}
+              aria-label={`選取 ${store.storeName}`}
+              className="absolute top-3.5 left-3.5 cursor-pointer"
+            />
+
+            {/* 店家名稱 */}
+            <div className="pl-7 mb-3">
+              <p className="font-semibold text-base">{store.storeName}</p>
+            </div>
+
+            {/* 統計資訊 */}
+            <div className="grid grid-cols-2 gap-3 text-sm mb-4 pl-7">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2">
+                <p className="text-xs text-gray-400 mb-0.5">品項數</p>
+                <p className="font-semibold text-base">{store.items.length}</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2">
+                <p className="text-xs text-gray-400 mb-0.5">最近使用</p>
+                <p className="font-medium text-xs">
+                  {store.lastUsedAt
+                    ? new Date(store.lastUsedAt).toLocaleDateString("zh-TW")
+                    : "-"}
+                </p>
+              </div>
+            </div>
+
+            {/* 操作按鈕 */}
+            <div className="flex gap-2 pt-3 border-t dark:border-gray-700 mt-auto">
+              <Link
+                href={`/admin/stores/${store.id}`}
+                className="flex-1 text-center text-sm py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                編輯
+              </Link>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => handleSingleDelete(store.id, store.storeName)}
+                className="text-sm text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+              >
+                刪除
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── 列表視圖（隱藏，保留備用）── */}
+      <div className="hidden" aria-hidden="true">
+        <table className="w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b">
+              <th className="py-2 pr-3 w-8" />
+              <th className="py-2 pr-4">店家名稱</th>
+              <th className="py-2 pr-4">品項數</th>
+              <th className="py-2 pr-4">最近使用</th>
+              <th className="py-2 pr-4">操作</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {stores.map((store) => (
+              <tr key={store.id} className="border-b">
+                <td className="py-2 pr-3" />
+                <td className="py-2 pr-4">{store.storeName}</td>
+                <td className="py-2 pr-4">{store.items.length}</td>
+                <td className="py-2 pr-4 text-gray-500 dark:text-gray-400">
+                  {store.lastUsedAt
+                    ? new Date(store.lastUsedAt).toLocaleDateString("zh-TW")
+                    : "-"}
+                </td>
+                <td className="py-2 pr-4">
+                  <Link href={`/admin/stores/${store.id}`} className="text-sm underline">
+                    編輯
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

@@ -88,11 +88,11 @@ async function main() {
       assert(pageText.includes(ORIG_STORE), `店家列表應看到「${ORIG_STORE}」`);
       console.log("[e2e:stores] ✅ 建立菜單時同步儲存店家成功");
 
-      // 3. 點擊編輯
+      // 3. 點擊編輯（從卡片的「編輯」連結）
       const editLinkHandle = await page.evaluateHandle((name) => {
-        const rows = Array.from(document.querySelectorAll("tbody tr"));
-        const row = rows.find((r) => r.textContent.includes(name));
-        return row ? row.querySelector("a") : null;
+        const cards = Array.from(document.querySelectorAll("[data-store-name]"));
+        const card = cards.find((c) => c.getAttribute("data-store-name") === name);
+        return card ? card.querySelector("a") : null;
       }, ORIG_STORE);
       assert(editLinkHandle.asElement(), "應找到編輯連結");
       await Promise.all([editLinkHandle.asElement().click(), page.waitForNetworkIdle()]);
@@ -115,20 +115,21 @@ async function main() {
       pageText = await page.evaluate(() => document.body.innerText);
       assert(pageText.includes(RENAMED_STORE), `列表應顯示新店家名稱「${RENAMED_STORE}」`);
       assert(!pageText.includes(ORIG_STORE), `舊店家名稱「${ORIG_STORE}」不應再出現`);
-      const updatedRowText = await page.evaluate((name) => {
-        const trs = Array.from(document.querySelectorAll("tbody tr"));
-        const row = trs.find((r) => r.textContent.includes(name));
-        return row ? row.innerText : "";
+      // 從卡片取得品項數資訊
+      const updatedCardText = await page.evaluate((name) => {
+        const cards = Array.from(document.querySelectorAll("[data-store-name]"));
+        const card = cards.find((c) => c.getAttribute("data-store-name") === name);
+        return card ? card.innerText : "";
       }, RENAMED_STORE);
-      assert(updatedRowText.includes("2"), `修改後品項數應為 2，實際：${updatedRowText}`);
+      assert(updatedCardText.includes("2"), `修改後品項數應為 2，實際：${updatedCardText}`);
       console.log("[e2e:stores] ✅ 編輯店家名稱與品項成功，列表正確更新");
 
-      // 4. 刪除店家（單筆）
+      // 4. 刪除店家（單筆）- 從卡片找刪除按鈕
       const deleteBtn = await page.evaluateHandle((name) => {
-        const trs = Array.from(document.querySelectorAll("tbody tr"));
-        const row = trs.find((r) => r.textContent.includes(name));
-        if (!row) return null;
-        const btns = Array.from(row.querySelectorAll("button"));
+        const cards = Array.from(document.querySelectorAll("[data-store-name]"));
+        const card = cards.find((c) => c.getAttribute("data-store-name") === name);
+        if (!card) return null;
+        const btns = Array.from(card.querySelectorAll("button"));
         return btns.find((b) => b.textContent.trim() === "刪除") ?? null;
       }, RENAMED_STORE);
       assert(deleteBtn.asElement(), "應找到刪除按鈕");
@@ -138,7 +139,7 @@ async function main() {
       assert(!pageText.includes(RENAMED_STORE), `刪除後不應看到「${RENAMED_STORE}」`);
       console.log("[e2e:stores] ✅ 刪除店家成功");
 
-      // 5. 批次刪除
+      // 5. 批次刪除 - 從卡片找 checkbox
       await createMenuWithStore(page, BATCH_A, 6);
       await createMenuWithStore(page, BATCH_B, 7);
       await page.goto(`${BASE_URL}/admin/stores`, { waitUntil: "networkidle0" });
@@ -147,10 +148,11 @@ async function main() {
       assert(pageText.includes(BATCH_B), `列表應看到「${BATCH_B}」`);
 
       await page.evaluate((nameA, nameB) => {
-        const trs = Array.from(document.querySelectorAll("tbody tr"));
-        for (const tr of trs) {
-          if (tr.textContent.includes(nameA) || tr.textContent.includes(nameB)) {
-            const cb = tr.querySelector('input[type="checkbox"]');
+        const cards = Array.from(document.querySelectorAll("[data-store-name]"));
+        for (const card of cards) {
+          const name = card.getAttribute("data-store-name");
+          if (name === nameA || name === nameB) {
+            const cb = card.querySelector('input[type="checkbox"]');
             if (cb) cb.click();
           }
         }

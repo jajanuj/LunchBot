@@ -82,17 +82,23 @@ export async function generatePayrollDeductions(billingPeriod: string): Promise<
 
   if (!orders || orders.length === 0) return 0;
 
-  // 忽略已有扣款紀錄的 order
+  // 查詢帳期內已有的扣款紀錄（含金額與狀態）
   const { data: existing, error: exErr } = await supabase
     .from("payroll_deductions")
-    .select("order_id")
+    .select("order_id, amount, status")
     .eq("billing_period", billingPeriod);
   if (exErr) throw new Error(exErr.message);
 
-  const existingOrderIds = new Set((existing ?? []).map((r: { order_id: string }) => r.order_id));
+  type ExistingRow = { order_id: string; amount: number; status: string };
+  const existingMap = new Map<string, ExistingRow>(
+    (existing ?? []).map((r: ExistingRow) => [r.order_id, r])
+  );
 
-  const toInsert = (orders as { id: string; employee_id: string; total_amount: number }[])
-    .filter((o) => !existingOrderIds.has(o.id))
+  const orderList = orders as { id: string; employee_id: string; total_amount: number }[];
+
+  // 尚無紀錄的 order → 新增
+  const toInsert = orderList
+    .filter((o) => !existingMap.has(o.id))
     .map((o) => ({
       employee_id: o.employee_id,
       order_id: o.id,
@@ -101,12 +107,31 @@ export async function generatePayrollDeductions(billingPeriod: string): Promise<
       status: "pending",
     }));
 
-  if (toInsert.length === 0) return 0;
+  // 已有 pending 紀錄但金額不同 → 更新（exported 不動）
+  const toUpdate = orderList.filter((o) => {
+    const ex = existingMap.get(o.id);
+    return ex && ex.status === "pending" && ex.amount !== o.total_amount;
+  });
 
-  const { error: insertErr } = await supabase.from("payroll_deductions").insert(toInsert);
-  if (insertErr) throw new Error(insertErr.message);
+  let changed = 0;
 
-  return toInsert.length;
+  if (toInsert.length > 0) {
+    const { error: insertErr } = await supabase.from("payroll_deductions").insert(toInsert);
+    if (insertErr) throw new Error(insertErr.message);
+    changed += toInsert.length;
+  }
+
+  for (const o of toUpdate) {
+    const { error: updateErr } = await supabase
+      .from("payroll_deductions")
+      .update({ amount: o.total_amount, updated_at: new Date().toISOString() })
+      .eq("order_id", o.id)
+      .eq("status", "pending");
+    if (updateErr) throw new Error(updateErr.message);
+    changed++;
+  }
+
+  return changed;
 }
 
 /** 將指定帳期所有 pending 扣款紀錄標記為 exported */

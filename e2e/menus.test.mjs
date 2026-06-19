@@ -97,21 +97,23 @@ async function main() {
       ]);
       assert(page.url() === `${BASE_URL}/admin/menus`, `建立後應回到菜單列表，實際：${page.url()}`);
 
-      let tableText = await page.$eval("table", (el) => el.innerText);
-      assert(tableText.includes(MANUAL_STORE), "列表應看到剛建立的店家");
-      assert(tableText.includes("收單中"), "新菜單狀態應為收單中");
+      // 卡片視圖：用 body.innerText 找可見文字
+      let pageText = await page.evaluate(() => document.body.innerText);
+      assert(pageText.includes(MANUAL_STORE), "列表應看到剛建立的店家");
+      assert(pageText.includes("收單中"), "新菜單狀態應為收單中");
       console.log("[e2e:menus] ✅ 手動輸入建立菜單成功並顯示在列表");
 
-      // 2. 進入詳細頁
+      // 2. 進入詳細頁（從卡片的「查看詳細」連結）
       const detailLinkHandle = await page.evaluateHandle((storeName) => {
-        const rows = Array.from(document.querySelectorAll("tbody tr"));
-        const row = rows.find((r) => r.textContent.includes(storeName));
-        return row ? row.querySelector("a") : null;
+        const cards = Array.from(document.querySelectorAll("[data-menu-store]"));
+        const card = cards.find((c) => c.getAttribute("data-menu-store") === storeName);
+        return card ? card.querySelector("a") : null;
       }, MANUAL_STORE);
       const detailLink = detailLinkHandle.asElement();
       assert(detailLink, "應找到查看連結");
-      await Promise.all([detailLink.click(), page.waitForNetworkIdle()]);
-      // 品項清單預設摺疊，先展開 <details> 再做斷言
+      await detailLink.click();
+      // 等到品項清單的 <details> 元素出現再展開（Server Component 串流渲染需要時間）
+      await page.waitForSelector("details", { timeout: 20000 });
       await page.click("details > summary");
       const detailText = await page.evaluate(() => document.body.innerText);
       assert(detailText.includes("雞腿飯") && detailText.includes("90"), "詳細頁應看到雞腿飯/90");
@@ -149,8 +151,8 @@ async function main() {
         page.click("#create-menu-submit"),
         page.waitForNetworkIdle(),
       ]);
-      tableText = await page.$eval("table", (el) => el.innerText);
-      assert(tableText.includes(TEMPLATE_STORE), "套用樣板建立的菜單應出現在列表");
+      pageText = await page.evaluate(() => document.body.innerText);
+      assert(pageText.includes(TEMPLATE_STORE), "套用樣板建立的菜單應出現在列表");
       console.log("[e2e:menus] ✅ 套用樣板建立的菜單成功送出");
     } finally {
       await browser.close();
