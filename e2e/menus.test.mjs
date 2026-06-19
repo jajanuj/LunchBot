@@ -120,11 +120,16 @@ async function main() {
       assert(detailText.includes("排骨飯") && detailText.includes("85"), "詳細頁應看到排骨飯/85");
       console.log("[e2e:menus] ✅ 詳細頁正確顯示品項與價格");
 
-      // 3. 結單
+      // 3. 結單（等 React hydration 完成後點擊）
+      const menuDetailUrl = page.url();
+      // 等 Next.js hydration 完成（__next_f 陣列停止增長）
+      await page.waitForFunction(() => document.readyState === "complete", { timeout: 10000 });
+      await new Promise(r => setTimeout(r, 500)); // hydration 緩衝
       await Promise.all([
         page.click("#close-menu-submit"),
         page.waitForNetworkIdle(),
       ]);
+      await page.goto(menuDetailUrl, { waitUntil: "networkidle0" });
       const afterCloseText = await page.evaluate(() => document.body.innerText);
       assert(afterCloseText.includes("已結單"), "結單後狀態應顯示已結單");
       console.log("[e2e:menus] ✅ 結單後狀態正確變更");
