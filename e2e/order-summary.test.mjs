@@ -73,14 +73,15 @@ async function main() {
       await Promise.all([page.click("#create-menu-submit"), page.waitForNetworkIdle()]);
       assert(page.url() === `${BASE_URL}/admin/menus`, `應回到菜單列表，實際：${page.url()}`);
 
-      // 進入詳細頁
+      // 進入詳細頁（從卡片的「查看詳細」連結）
       const linkHandle = await page.evaluateHandle((name) => {
-        const rows = Array.from(document.querySelectorAll("tbody tr"));
-        const row = rows.find((r) => r.textContent.includes(name));
-        return row ? row.querySelector("a") : null;
+        const cards = Array.from(document.querySelectorAll("[data-menu-store]"));
+        const card = cards.find((c) => c.getAttribute("data-menu-store") === name);
+        return card ? card.querySelector("a") : null;
       }, storeName);
       assert(linkHandle.asElement(), "應找到菜單查看連結");
-      await Promise.all([linkHandle.asElement().click(), page.waitForNavigation({ waitUntil: "networkidle0" })]);
+      await linkHandle.asElement().click();
+      await page.waitForSelector("details", { timeout: 20000 });
 
       // EMP_A 點 便當A × 2
       await page.evaluate(() => { document.getElementById("assisted-order-details").open = true; });
