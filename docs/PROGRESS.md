@@ -65,14 +65,20 @@
   - **WBS 階段四（結算彙整與薪資扣款）全部完成（2026-06-19）：**
     - **4A — 收單後彙整**：`/admin/menus/[id]` 新增「店家叫貨清單」（品項 × 總數量 + 小計）+ 「個人對帳清單」（每人 × 金額），含「推播叫貨清單至 LINE 群組」按鈕與「匯出個人對帳清單（CSV）」按鈕；自動結單 cron 同步推播叫貨清單；E2E 測試（port 3122）全數通過
     - **4B — 月結薪資扣款**：`/admin/payroll` 新頁面（帳期選擇 + 產生扣款紀錄 + 員工彙整表格 + CSV 匯出 + 標記已匯出）；`payroll_deductions` 資料表 migration（`0007_payroll_deductions.sql`）已套用至 Supabase；E2E 測試（port 3124）全數通過
-  - `npm run test:e2e`（共 51 個情境，15 個套件）全部通過
+  - **金額計算修正 + 卡片 UI（2026-06-19）：**
+    - `order_items` 加 `price` 欄位（migration `0009_add_price_to_order_items.sql`）— ⚠️ **待套用至 Supabase**
+    - `orders.ts` ORDER_SELECT 改用 `order_items.price`，下單時寫入 price，徹底解決菜單改價後顯示錯誤問題
+    - 個人對帳清單加入每人小計列；叫貨清單合計與對帳清單合計分開計算
+    - `generatePayrollDeductions` 改為可更新已存在 pending 紀錄的金額（訂單修改後重新產生時同步更新）
+    - 菜單管理、店家管理改為卡片式 UI（含狀態標籤、統計資訊）；原 table 列表設為 `hidden` 保留備用
   - **部署到 Vercel 完成（2026-06-19）**
 
 - 🔄 **進行中**
   - 無
 
 - ⏳ **待處理**
-  - 無（所有計劃功能已完成並部署）
+  - ⚠️ **migration 0009 需套用**：在 Supabase SQL Editor 執行 `supabase/migrations/0009_add_price_to_order_items.sql`，套用後 menus E2E 測試才能正常通過
+  - 套用後執行 `npm run test:e2e:menus` 確認通過，再部署到 Vercel
   - 提醒推播的「真的發送成功」只用人工方式驗證過一次（自動化測試只測「沒有提醒到期」分支，避免每次測試都真的發訊息到群組），若之後改了 `buildReminderText()` 或推播邏輯，建議照 `npm run verify:line-push` 的模式寫一個對應的手動驗證腳本
   - 部署到 Vercel 時要確認方案的 Cron 執行頻率限制（Hobby 方案曾經一度限制為每天最多 1 次），若不符合「每 10 分鐘」的設計需求，要評估改成每天固定時段或升級方案
   - 安全性待強化：LIFF 身分目前信任前端傳來的 lineUserId，沒有用 `liff.getIDToken()` 做伺服器端 JWT 驗證（內部 MVP 風險可接受，未來可加強，見 `src/app/liff/order/actions.ts` 註解）
